@@ -1,0 +1,9 @@
+nflreadpy
+polars
+pandas
+pyarrow
+requests
+supabase
+python-dotenv
+espn-api
+psycopg[binary]

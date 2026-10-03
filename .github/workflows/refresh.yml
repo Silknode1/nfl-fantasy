@@ -1,0 +1,89 @@
+name: NFL data refresh
+
+# Targets (America/Chicago): 10:58 AM and 5:58 PM daily, plus Sunday 9:35 AM (inactives only).
+# GitHub cron is UTC-only, so each target has a CDT and a CST entry; the guard step skips
+# whichever one lands an hour off, which keeps local times correct across the Nov 1 clock change.
+on:
+  schedule:
+    - cron: "58 15 * * *"   # 10:58 CDT
+    - cron: "58 16 * * *"   # 10:58 CST
+    - cron: "58 22 * * *"   # 17:58 CDT
+    - cron: "58 23 * * *"   # 17:58 CST
+    - cron: "35 14 * * 0"   # Sun 09:35 CDT
+    - cron: "35 15 * * 0"   # Sun 09:35 CST
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "full or inactives"
+        default: "full"
+
+concurrency:
+  group: nfl-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Timezone guard
+        id: guard
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          MODE_INPUT: ${{ github.event.inputs.mode }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            args=""; [ "$MODE_INPUT" = "inactives" ] && args="--inactives"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "args=$args" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$SCHEDULE" in
+            "58 15 * * *"|"58 16 * * *") target=658;  args="" ;;
+            "58 22 * * *"|"58 23 * * *") target=1078; args="" ;;
+            "35 14 * * 0"|"35 15 * * 0") target=575;  args="--inactives" ;;
+            *) echo "Unknown schedule: $SCHEDULE"; exit 1 ;;
+          esac
+          now=$(TZ=America/Chicago date +%H:%M)
+          mins=$(( 10#${now%:*} * 60 + 10#${now#*:} ))
+          diff=$(( mins - target )); [ "$diff" -lt 0 ] && diff=$(( -diff ))
+          # Within 45 min = on target (tolerates GitHub start delays). The wrong-DST entry is 60 off.
+          if [ "$diff" -le 45 ]; then run=true; else run=false; fi
+          echo "Chicago time $now, target minute $target, diff $diff -> run=$run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.run == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.guard.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.guard.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Run refresh
+        if: steps.guard.outputs.run == 'true'
+        env:
+          ESPN_LEAGUE_ID: ${{ secrets.ESPN_LEAGUE_ID }}
+          ESPN_YEAR: ${{ secrets.ESPN_YEAR }}
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          ESPN_SWID: ${{ secrets.ESPN_SWID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          SLEEPER_USERNAME: ${{ secrets.SLEEPER_USERNAME }}
+        run: |
+          set -o pipefail
+          python run_nightly.py ${{ steps.guard.outputs.args }} 2>&1 | tee run.log
+          # The scripts log step failures instead of crashing; turn those into a failed run
+          # so GitHub emails you (e.g. expired ESPN cookies).
+          if grep -q "FAILED" run.log; then
+            echo "::error::One or more refresh steps failed - see log above"
+            exit 1
+          fi
