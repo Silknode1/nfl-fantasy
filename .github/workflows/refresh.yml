@@ -78,6 +78,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           SLEEPER_USERNAME: ${{ secrets.SLEEPER_USERNAME }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          ESPN_MY_TEAM_ID: ${{ secrets.ESPN_MY_TEAM_ID }}
         run: |
           set -o pipefail
           python run_nightly.py ${{ steps.guard.outputs.args }} 2>&1 | tee run.log
