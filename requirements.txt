@@ -7,3 +7,4 @@ supabase
 python-dotenv
 espn-api
 psycopg[binary]
+typesafe-sdk>=0.7.2,<0.8

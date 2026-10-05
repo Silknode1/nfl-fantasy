@@ -69,6 +69,32 @@ def get_matchup(team: str):
     return games[0] if games else None
 
 
+def get_player_signals(name: str, hours: int = 72):
+    """Recent Jev-judged news for a player (fuzzy name match), newest first.
+
+    Only usable judgments from a real model are returned: items that failed the identity or injection gate
+    and anything produced by the offline mock are excluded. `signal` carries the interpreted availability,
+    role and durability verdicts with their confidence; the raw probabilities live in `answers`.
+    """
+    return query_sql(
+        """
+        select n.published_at, n.headline, n.url, p.full_name, p.position, j.alert_tier,
+               j.signal->'availability' as availability, j.signal->'role' as role,
+               j.signal->'durability' as durability, (j.signal->>'urgency')::numeric as urgency
+        from jev_judgments j
+        join news_items n on n.news_id = j.news_id
+        join players p on p.player_id = j.player_id
+        where p.full_name ilike %s
+          and n.published_at > now() - make_interval(hours => %s)
+          and j.model <> 'mock-heuristic'
+          and (j.signal->>'usable')::boolean
+        order by n.published_at desc
+        limit 20
+        """,
+        (f"%{name}%", int(hours)),
+    )
+
+
 # --- Waiver scoring ---------------------------------------------------------------------------
 def _production(avg: float, floor: float) -> float:
     """Recent production: half L3 average, half L3 worst game (the floor)."""
