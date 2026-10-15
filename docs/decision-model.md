@@ -33,7 +33,7 @@ Tags: **[V]** verified in code or data · **[A]** assumption, never tested · **
 
 ## Decision engine (TypeScript) [V]
 - **Value unit.** Weighted starting points per week from next week through Week 17, playoff weeks × 1.5 (`playerValue`, `outlook`).
-- **Lineup.** Greedy best lineup, which is optimal for this slot structure.
+- **Lineup.** Greedy best lineup, which is optimal for this slot structure. The lineup sd adds a fixed 10-point term in quadrature (`+ 100` inside the sqrt in `lineup.ts`) [A].
 - **Simulation** (`sim.ts`): 3,000 seasons with fixed random draws (seed 20261011).
   - Team week score = projected lineup points + sd × z + 5 × season-long strength error. Played weeks use actual points.
   - Title odds move about ±2 points between data refreshes, even when nothing important changed.
@@ -43,6 +43,9 @@ Tags: **[V]** verified in code or data · **[A]** assumption, never tested · **
   - Every piece offered must be worth 3.5+ pts/week. Each side must keep a QB and a TE.
   - Score = Δ weighted pts/week + 0.2 × Δ title odds (points). Grade cutoffs: A+ ≥ 4, A ≥ 3, A- ≥ 2.2, B+ ≥ 1.5, B ≥ 1.0, B- ≥ 0.6, C+ ≥ 0.25, C ≥ −0.25, … F < −2.2 [A]. The two terms overlap, because title odds are computed from the same weekly points.
   - Acceptance = logistic(−0.8 + 1.0 × partner lineup Δ + 0.3 × ESPN-perceived value Δ), with a 1.15 premium on what the partner gives up, clipped to 3–95%. **Never validated** [A].
+    - The intercept alone gives 31%: of the Stevenson 3-for-1's 38%, about 31 points are the constant.
+    - The value is computed in the browser and **never saved**, so past offers' predictions must be rebuilt from the snapshot before each offer.
+  - Double count, worked example (Stevenson 3-for-1): 1.33 pts/wk + 0.2 × 2.8 title points = 1.89, a B+. On weekly points alone it would be a B.
   - Ranking = my gain × acceptance. Counteroffers: best package per subset of the original ask that adds ≥ 0.5 pts/week at ≥ 30% acceptance. Deals under 10% are flagged "likely decline".
   - The partner's title odds are not considered, so helping a rival scores the same as helping a 0-5 team.
 - **Waivers** (`waivers.ts`):
@@ -97,9 +100,12 @@ ID joins: ESPN id ↔ gsis ↔ sleeper id through the `players` table. Some Slee
 ## Planned [P]
 - Position-specific prior strength; bye-aware playoff weight; expected-points blend; opponent cap ±8%; consensus projection blend.
 - Acceptance recalibration from logged offers; per-manager activity priors.
+- Log the model's acceptance % and the user's gut estimate at the moment an offer is sent.
+- Hindsight-ceiling check before any waiver-model work: how many points would perfect picks have added?
 - Fill `actual` on `app_live` rows after games (or a view joining actuals) so live projections are scored weekly.
 
 ## Decision log
 - 2026-10-11: Counteroffer finder and "likely decline" flag added.
 - 2026-10-13: Fixed `weekAdvice` swap pairing.
 - 2026-10-15: Waiver pulse, range chart, `trends.py`. Transaction and projection logging. Weeks 1–5 backfill. Code committed.
+- 2026-10-15: Skill evals found the B+ double count, the 31% intercept share, and that acceptance isn't persisted.
