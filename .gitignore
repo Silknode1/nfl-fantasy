@@ -15,3 +15,4 @@ docs/typesafe/
 
 # Raw answers from the live skill bake-off (regenerate with run_bakeoff.py)
 jev_signals/evals/bakeoff/results.json
+data_cache/

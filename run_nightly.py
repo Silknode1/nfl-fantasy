@@ -1,7 +1,7 @@
 """Entry point for the scheduled refresh.
 
   python run_nightly.py              # full refresh (nightly)
-  python run_nightly.py --inactives  # Sunday-morning: injuries, ESPN, odds, Sleeper, news + Jev only
+  python run_nightly.py --inactives  # Sunday-morning: injuries, ESPN, odds, Sleeper, news + Jev, fantasy
 
 The news and Jev steps import lazily: a missing typesafe-sdk or API key must not stop the data refresh.
 """
@@ -28,6 +28,12 @@ def _news():
     news_ingest.run()
 
 
+def _fantasy():
+    from fantasy import build
+
+    build.run()  # ESPN league + projections for the web app; also refreshes espn_league_rosters
+
+
 def _jev():
     import judge_news
 
@@ -42,4 +48,5 @@ if __name__ == "__main__":
     step("odds", odds_ingest.run)
     step("news", _news)
     step("jev", _jev)
+    step("fantasy", _fantasy)  # after Jev so fresh news judgments feed the projections
     print("done")

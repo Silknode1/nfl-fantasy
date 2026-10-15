@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-artifact/
+# League data stays out of git: it holds every manager's roster. Rebuild with `python -m fantasy.build`.
+public/data/*.json
+src/inline-data.json
+shot-*.png
+
+# One-off analysis scripts (scratch paths, not part of the app)
+scripts/probe*.ts

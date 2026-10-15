@@ -38,3 +38,14 @@ and tuning are in `docs/JEV.md`. A local mirror of the vendor docs is in `docs/t
 - Snap counts are keyed by PFR id; join through `players.data->>'pfr_id'`.
 - ESPN cookies expire. A 401 from the league pull means re-grab `espn_s2` and `SWID`.
 - Never commit `.env`.
+
+## Fantasy screens (`fantasy/` + `web/`)
+Your team, trade finder with A+ to F grades, waivers, league position ranks, our ranks vs ESPN, and a season plan.
+
+- `python -m fantasy.build` pulls the private ESPN league (your `ESPN_S2`/`ESPN_SWID`), the Supabase tables, and Jev judgments,
+  then writes `web/public/data/fantasy.json`, refreshes `espn_league_rosters`, and saves a row to `fantasy_snapshots` (`schema_fantasy.sql`).
+  `--offline` re-runs projections on the cached pulls in `data_cache/`.
+- `./fantasy.sh` does both in one go: refreshes the data, then starts the app at http://localhost:5173 (`./fantasy.sh --offline` skips the pulls).
+- `cd web && npm install && npm run dev` serves the app. `npm run build:artifact` (after `python scripts/inline_photos.py public/data/fantasy.json src/inline-data.json`) makes the single-file preview.
+- Split: Python owns projections (`fantasy/engine.py`); the browser owns decisions (`web/src/engine`: lineups, ranks, 3,000-season simulation, trades, grades, waivers, plan).
+- Gotchas: the Supabase Data API here defaults to the `api` schema, so REST calls send `Accept-Profile: public`. League data is gitignored (it has every manager's roster).
