@@ -99,7 +99,7 @@ p { margin: 0.4em 0; max-width: 78ch; }
 .rank.flat { color: var(--text); }
 
 /* ---------------------------------------------------------------- roster */
-.prow { display: grid; grid-template-columns: 38px 56px minmax(0, 1fr) 64px 64px 92px; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--grid); }
+.prow { display: grid; grid-template-columns: 38px 56px minmax(0, 1fr) 54px 54px 64px 64px 92px; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--grid); }
 .prow:first-of-type { border-top: 0; }
 .slot { font-family: var(--display); font-weight: 700; font-size: 16px; color: var(--muted); }
 .pname { font-family: var(--display); font-weight: 700; font-size: 19px; line-height: 1.1; color: #eef3f9; }
@@ -107,6 +107,14 @@ p { margin: 0.4em 0; max-width: 78ch; }
 .num { display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }
 .num b { font-size: 16px; }
 .num small { color: var(--muted); font-size: 11px; }
+.num.l3.up b { color: var(--up); }
+.num.l3.down b { color: var(--down); }
+.m-only { display: none; }
+.playp { color: var(--amber); font-weight: 700; }
+.modebox { display: flex; align-items: center; gap: 4px; margin: 12px 20px 0; flex-wrap: wrap; }
+.modebox-label { width: 100%; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.modebox button { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.modebox button.on { color: #f1f5fa; border-color: var(--amber); background: var(--panel); }
 .pos-ranks { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
 .pos-ranks b { color: var(--text); font-size: 14px; }
 .pos-ranks .good b { color: var(--up); }
@@ -267,7 +275,11 @@ button.ghost { background: transparent; border: 1px solid var(--line); border-ra
   .nav .fresh { display: none; }
   .main { padding: 12px 16px 24px; }
   .prow { grid-template-columns: 30px 48px minmax(0, 1fr) 52px; }
-  .prow .num.ros, .prow .rank { display: none; }
+  .prow .num.ros, .prow .rank, .prow .num.fppg, .prow .num.l3 { display: none; }
+  .m-only { display: inline; }
+  .modebox { margin: 8px 0 8px 8px; flex-wrap: nowrap; }
+  .modebox-label { width: auto; margin-right: 4px; }
+  .modebox button { white-space: nowrap; }
   .preview-top { grid-template-columns: 1fr; }
   .grade-col { order: -1; padding-top: 0; }
   .wrow { grid-template-columns: 48px minmax(0, 1fr); }

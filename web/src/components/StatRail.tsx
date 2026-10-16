@@ -43,8 +43,8 @@ export function StatRail() {
           </header>
           <WeeklyChart p={pinned} />
           <dl className="facts">
-            <dt>Scored</dt><dd>{fmt(pinned.ppg)} pts/g over {pinned.gp} games</dd>
-            <dt>Our projection</dt><dd>{fmt(pinned.rate)} pts/g when active; {fmt(lab.v(pinned))} per week counting byes and injuries</dd>
+            <dt>Scored</dt><dd>{fmt(pinned.ppg)} pts/g over {pinned.gp} games (fPPG); last 3 games {pinned.last3 != null ? fmt(pinned.last3) : '–'}</dd>
+            <dt>App projection</dt><dd>{fmt(pinned.proj[String(week)] ?? 0)} this week{pinned.playP != null && pinned.playP < 0.9 && pinned.playP > 0 ? ` (${Math.round(pinned.playP * 100)}% to play)` : ''}. {fmt(pinned.rate)} pts/g when active; {fmt(lab.v(pinned))} per week counting byes and injuries</dd>
             <dt>ESPN</dt><dd>{pinned.espnWeek !== null ? `${fmt(pinned.espnWeek)} this week, ` : ''}{fmt(pinned.espnSeason, 0)} season projection</dd>
             <dt>Usage</dt><dd>{usageLine(pinned)}</dd>
             <dt>Playoff draw</dt><dd>{sosLabel(playoffSos(d, pinned))} vs average defense, Weeks 15–17</dd>

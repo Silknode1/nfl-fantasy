@@ -47,6 +47,22 @@ export function InjuryTag({ p }: { p: Player }) {
   )
 }
 
+/** Chance an injured player plays this week; hidden for healthy players and for players ruled out. */
+export function PlayChance({ p }: { p: Player }) {
+  if (p.playP == null || p.playP >= 0.9 || p.playP <= 0 || !p.inj || p.inj === 'ACTIVE') return null
+  return (
+    <span className="playp" title="Chance he plays this week, from how often players with this injury tag and practice report have played (2025 and 2026)">
+      {Math.round(p.playP * 100)}% to play
+    </span>
+  )
+}
+
+/** 'up' when his last 3 games run 15%+ above his season average, 'down' when 15%+ below. */
+export function hot(p: Player): string {
+  if (p.last3 == null || !p.gp || p.gp < 3 || p.ppg < 3) return ''
+  return p.last3 >= p.ppg * 1.15 ? 'up' : p.last3 <= p.ppg * 0.85 ? 'down' : ''
+}
+
 /** Our rank vs ESPN's projection rank, e.g. WR9 vs WR21. */
 export function RankDelta({ p }: { p: Player }) {
   if (!p.espnRank) return <span className="rank muted">{p.pos}{p.ourRank}</span>

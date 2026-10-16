@@ -181,31 +181,46 @@ def jev_mult(j: dict | None) -> float:
 
 
 # ---------------------------------------------------------------- availability
-def availability(status: str | None, pos: str, week: int, current: int, jev: dict | None) -> tuple[float, str | None]:
-    """Probability the player plays in `week`, plus a note on the assumption used."""
+# Measured on 2025 + 2026 weeks 3-5 (287 questionable, 20 doubtful, 311 out player-weeks, usage baseline >= 1.5 pts):
+#   Out: 0% played. Doubtful: 0% played. Questionable: 63% played; those who played scored ~88% of their usual.
+#   By practice report, questionable players played 74% (full), 63% (limited), 50% (did not practice).
+Q_PLAY_BY_PRACTICE = {"Full": 0.75, "Limi": 0.63, "Did ": 0.50}  # keyed by first 4 chars of practice_status
+Q_PLAY_DEFAULT = 0.63
+Q_IF_PLAYS = 0.88   # points when a questionable/doubtful player does play, vs his usual
+DOUBTFUL_PLAY = 0.03
+
+
+def availability(status: str | None, pos: str, week: int, current: int, jev: dict | None,
+                 practice: str | None = None) -> tuple[float, float, str | None]:
+    """(chance he plays in `week`, scoring multiplier if he plays, note on the assumption used)."""
     healthy = 0.96 if pos == "RB" else 0.97
     timeline = (jev or {}).get("timeline")
     out_weeks = {"one_week": 1, "two_to_three_weeks": 3, "four_plus_weeks": 5, "season_ending": 99}.get(timeline)
     ahead = week - current
     if status in (None, "ACTIVE", "NORMAL"):
-        return healthy, None
+        return healthy, 1.0, None
     if status in ("QUESTIONABLE", "DAY_TO_DAY"):
-        return (0.70 if ahead == 0 else healthy), "Listed questionable"
+        if ahead != 0:
+            return healthy, 1.0, "Listed questionable"
+        pl = Q_PLAY_BY_PRACTICE.get((practice or "")[:4], Q_PLAY_DEFAULT)
+        return pl, Q_IF_PLAYS, f"Listed questionable: {round(pl * 100)}% to play, ~{round(Q_IF_PLAYS * 100)}% of usual if he does"
     if status == "DOUBTFUL":
-        return ({0: 0.25, 1: 0.80}.get(ahead, healthy)), "Listed doubtful"
+        if ahead == 0:
+            return DOUBTFUL_PLAY, Q_IF_PLAYS, "Listed doubtful: almost never plays"
+        return (0.80 if ahead == 1 else healthy), 1.0, "Listed doubtful"
     if status in ("OUT", "SUSPENSION"):
         n = out_weeks or (2 if status == "SUSPENSION" else 1)
         note = f"Out; assumed back Week {current + n}" + (" (news timeline)" if out_weeks else " (assumption)")
         if n >= 99:
-            return 0.0, "Out for the season (news timeline)"
-        return (0.0 if ahead < n else (0.85 if ahead == n else healthy)), note
+            return 0.0, 1.0, "Out for the season (news timeline)"
+        return (0.0 if ahead < n else (0.85 if ahead == n else healthy)), 1.0, note
     if status == "INJURY_RESERVE":
         n = out_weeks or 4
         if n >= 99:
-            return 0.0, "Out for the season (news timeline)"
+            return 0.0, 1.0, "Out for the season (news timeline)"
         note = f"On IR; assumed back Week {current + n}" + (" (news timeline)" if out_weeks else " (assumption)")
-        return (0.0 if ahead < n else (0.80 if ahead == n else 0.94)), note
-    return healthy, None
+        return (0.0 if ahead < n else (0.80 if ahead == n else 0.94)), 1.0, note
+    return healthy, 1.0, None
 
 
 # ---------------------------------------------------------------- main build
@@ -217,6 +232,7 @@ def build() -> dict:
     weekly, snaps, plist = _load(db / "weekly.json"), _load(db / "snaps.json"), _load(db / "players.json")
     sched, trending = _load(db / "schedule.json"), _load(db / "trending.json")
     jev_rows, news = _load(db / "jev.json"), _load(db / "news.json")
+    inj_rows = _load(db / "injuries.json") if (db / "injuries.json").exists() else []
 
     now = datetime.now(timezone.utc)
     current = int(league.get("scoringPeriodId") or 1)
@@ -224,6 +240,7 @@ def build() -> dict:
     dfac = defense_factors(weekly)
     use = usage(weekly, snaps, plist)
     espn_to_gsis = {p["espn_id"]: p["player_id"] for p in plist if p.get("espn_id")}
+    practice = {(r["gsis"], r["week"]): r.get("ps") for r in inj_rows if r.get("gsis")}
     espn_to_sleeper = {p["espn_id"]: p["sleeper_id"] for p in plist if p.get("espn_id") and p.get("sleeper_id")}
     jev = jev_latest(jev_rows, news, now)
 
@@ -269,19 +286,24 @@ def build() -> dict:
         rate = base * tm * jm
 
         bye = byes.get(team)
-        proj, notes = {}, None
+        proj, proj_if, notes, play_p = {}, {}, None, None
         for wk in range(current, LAST_WEEK + 1):
             if wk == current and wk in actual:
-                proj[wk] = actual[wk]  # game already played this week
+                proj[wk] = proj_if[wk] = actual[wk]  # game already played this week
                 continue
             if team == "FA" or wk == bye or (team, wk) not in opp:
-                proj[wk] = 0.0
+                proj[wk] = proj_if[wk] = 0.0
                 continue
-            av, note = availability(status, pos, wk, current, j)
+            av, cond, note = availability(status, pos, wk, current, j, practice.get((gsis, current)) if gsis else None)
             notes = notes or note
+            if wk == current:
+                play_p = round(av, 2)
             f = dfac.get(opp[(team, wk)], {}).get(pos, 1.0)
-            proj[wk] = round(rate * f * av, 2)
+            proj[wk] = round(rate * f * av * cond, 2)          # expected points: chance he plays x points if he plays
+            proj_if[wk] = round(rate * f * cond, 2) if av > 0 else 0.0   # points if he plays
 
+        recent = [v for wk, v in sorted(actual.items()) if wk <= current][-3:]  # last 3 games with a stat line
+        last3 = round(statistics.mean(recent), 1) if recent else None
         emp_sd = statistics.pstdev(played) if gp >= 3 else None
         sd = CV[pos] * rate if emp_sd is None else 0.5 * CV[pos] * rate + 0.5 * emp_sd
         own = p.get("ownership") or {}
@@ -300,7 +322,8 @@ def build() -> dict:
             "usage": u, "adds": adds.get(sid, 0), "drops": drops.get(sid, 0), "jev": j,
             "rate": round(rate, 2),
             "rateParts": {"espn": round(espn_rate, 2), "season": round(ppg, 2), "trend": round(tm, 3), "jev": jev_mult(j)},
-            "proj": {str(k): v for k, v in proj.items()}, "sd": round(sd, 2),
+            "proj": {str(k): v for k, v in proj.items()}, "projIf": {str(k): v for k, v in proj_if.items()},
+            "playP": play_p, "last3": last3, "sd": round(sd, 2),
             "ros": round(sum(v for wk, v in proj.items() if current < wk <= REG_WEEKS), 1),
             "playoffs": round(sum(v for wk, v in proj.items() if wk > REG_WEEKS), 1),
             "tradeLocked": bool(entry.get("tradeLocked")),

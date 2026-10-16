@@ -30,6 +30,8 @@ PULLS = {
                  "game_id,week,home:data->>home_team,away:data->>away_team,gameday:data->>gameday,"
                  "spread:data->>spread_line,total:data->>total_line,home_score:data->>home_score,away_score:data->>away_score",
                  {"season": f"eq.{SEASON}"}),
+    "injuries": ("injuries", "week,gsis:data->>gsis_id,rs:data->>report_status,ps:data->>practice_status",
+                 {"season": f"eq.{SEASON}", "data->>position": "in.(QB,RB,WR,TE)"}),
     "trending": ("sleeper_trending", "pulled_at,kind,sleeper_id,count", {"order": "pulled_at.desc"}),
     "jev": ("jev_judgments", "news_id,espn_id,signal,alert_tier,judged_at", {"order": "judged_at.desc"}),
     "news": ("news_items", "news_id,headline,published_at,source,url", {"order": "published_at.desc"}),

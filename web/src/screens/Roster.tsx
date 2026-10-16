@@ -4,7 +4,8 @@ import { useEngineCtx } from '../dataContext'
 import { useFocus, useNumbered } from '../focus'
 import { RangeChart } from '../components/RangeChart'
 import { weekAdvice } from '../engine/advice'
-import { Avatar, InjuryTag, RankDelta, fmt, signed } from '../components/bits'
+import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, signed } from '../components/bits'
+import { hot } from '../components/bits'
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX']
 
@@ -24,11 +25,21 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
           <span>{p.nfl}</span>
           {p.bye && <span>Bye {p.bye}</span>}
           <InjuryTag p={p} />
+          <PlayChance p={p} />
+          <span className="m-only">fPPG {fmt(p.ppg)} · L3 {p.last3 != null ? fmt(p.last3) : '–'}</span>
         </div>
+      </div>
+      <div className="num fppg" title="Fantasy points per game this season (half PPR)">
+        <b>{p.gp ? fmt(p.ppg) : '–'}</b>
+        <small>fPPG</small>
+      </div>
+      <div className={`num l3 ${hot(p)}`} title="Average of his last 3 games: how hot or cold he is">
+        <b>{p.last3 != null ? fmt(p.last3) : '–'}</b>
+        <small>last 3</small>
       </div>
       <div className="num wk" title={p.locked ? 'Final for this week' : 'Projected this week'}>
         <b>{onBye ? 'Bye' : out ? 'Out' : fmt(wk)}</b>
-        <small>{p.locked ? 'final' : `wk ${d.meta.week}`}</small>
+        <small>{p.locked ? 'final' : `app wk ${d.meta.week}`}</small>
       </div>
       <div className="num ros">
         <b>{fmt(lab.v(p))}</b>

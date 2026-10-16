@@ -54,6 +54,12 @@ export interface Player {
   rate: number
   rateParts: { espn: number; season: number; trend: number; jev: number }
   proj: Record<string, number>
+  /** Points if he plays (chance he plays not applied). */
+  projIf?: Record<string, number>
+  /** Chance he plays this week: 0-1. */
+  playP?: number | null
+  /** Average of his last 3 games with a stat line. */
+  last3?: number | null
   sd: number
   ros: number
   playoffs: number

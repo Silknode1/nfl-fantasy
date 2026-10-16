@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FantasyData } from './types'
 import { loadData } from './data'
 import { useEngine } from './useEngine'
@@ -31,8 +31,49 @@ function readHash(): ScreenId {
   return (SCREENS.find((s) => s.id === h)?.id ?? 'team') as ScreenId
 }
 
+type ProjMode = 'expected' | 'plays'
+
+function readMode(): ProjMode {
+  try {
+    return localStorage.getItem('projMode') === 'plays' ? 'plays' : 'expected'
+  } catch {
+    return 'expected'
+  }
+}
+
+/** 'If he plays' view: swap each player's expected points for his points-if-he-plays. */
+function withMode(d: FantasyData | null, mode: ProjMode): FantasyData | null {
+  if (!d || mode === 'expected') return d
+  const reg = d.meta.regularWeeks
+  const cur = d.meta.week
+  return {
+    ...d,
+    players: d.players.map((p) => {
+      if (!p.projIf) return p
+      let ros = 0
+      let playoffs = 0
+      for (const [wk, v] of Object.entries(p.projIf)) {
+        const w = Number(wk)
+        if (w > reg) playoffs += v
+        else if (w > cur) ros += v
+      }
+      return { ...p, proj: p.projIf, ros: Math.round(ros * 10) / 10, playoffs: Math.round(playoffs * 10) / 10 }
+    }),
+  }
+}
+
 export function App() {
-  const [data, setData] = useState<FantasyData | null>(null)
+  const [rawData, setData] = useState<FantasyData | null>(null)
+  const [mode, setModeState] = useState<ProjMode>(readMode)
+  const setMode = (m: ProjMode) => {
+    setModeState(m)
+    try {
+      localStorage.setItem('projMode', m)
+    } catch {
+      /* private mode: the choice just won't persist */
+    }
+  }
+  const data = useMemo(() => withMode(rawData, mode), [rawData, mode])
   const [error, setError] = useState<string | null>(null)
   const [screen, setScreen] = useState<ScreenId>(readHash)
   const engine = useEngine(data)
@@ -81,6 +122,11 @@ export function App() {
                 {s.label}
               </a>
             ))}
+            <div className="modebox" role="group" aria-label="Projection view">
+              <span className="modebox-label">Projections</span>
+              <button type="button" className={mode === 'expected' ? 'on' : ''} aria-pressed={mode === 'expected'} onClick={() => setMode('expected')} title="Counts the chance an injured player sits (questionable about 63-75% to play)">Expected</button>
+              <button type="button" className={mode === 'plays' ? 'on' : ''} aria-pressed={mode === 'plays'} onClick={() => setMode('plays')} title="What a questionable or doubtful player scores if he plays (about 88% of usual)">If he plays</button>
+            </div>
             <p className="fresh">
               Updated {updated.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
             </p>
