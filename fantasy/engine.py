@@ -188,6 +188,12 @@ Q_PLAY_BY_PRACTICE = {"Full": 0.75, "Limi": 0.63, "Did ": 0.50}  # keyed by firs
 Q_PLAY_DEFAULT = 0.63
 Q_IF_PLAYS = 0.88   # points when a questionable/doubtful player does play, vs his usual
 DOUBTFUL_PLAY = 0.03
+# Backups when the starter misses (2025 nflverse, backups vs weeks their starter played, 80% ranges):
+#   RB next men x1.6 (1.1-2.1), WR next men x1.6 / x2.0 (1.1-2.7), TE ~x1.1 (0.7-1.7, no reliable lift),
+#   starter questionable but played: no lift. Shrunk toward 1 because the backup's own average already
+#   contains some of his recent starter-less games.
+BACKUP_LIFT = {"RB": 1.4, "WR": 1.4}   # TE and QB: none
+BACKUP_DEPTH = 2                        # applies to the two highest-rate teammates behind the starter
 
 
 def availability(status: str | None, pos: str, week: int, current: int, jev: dict | None,
@@ -330,6 +336,40 @@ def build() -> dict:
             "locked": current in actual,  # this week's game already played
             "headshotAlt": (u or {}).get("headshot"),
         })
+
+    # Backup lift: when the team's top man at RB/WR is likely to miss, the next two score more.
+    by_unit: dict = {}
+    for q in players:
+        if q["nfl"] != "FA" and q["pos"] in BACKUP_LIFT and q["rate"] >= 2.5:
+            by_unit.setdefault((q["nfl"], q["pos"]), []).append(q)
+    for (team, pos), grp in by_unit.items():
+        grp.sort(key=lambda q: -q["rate"])
+        if len(grp) < 2:
+            continue
+        starter = grp[0]
+        for q in grp[1 : 1 + BACKUP_DEPTH]:
+            q["lift"] = {}
+            for wk in range(current, LAST_WEEK + 1):
+                k = str(wk)
+                s_if, s_ex = starter["projIf"].get(k, 0.0), starter["proj"].get(k, 0.0)
+                if wk == current and starter["locked"]:
+                    continue
+                if starter["bye"] == wk:
+                    continue  # bye: both idle
+                # projIf is 0 when the starter is ruled out, so that means he misses for sure
+                miss = 1.0 if s_if <= 0 else max(0.0, 1.0 - s_ex / s_if)   # chance the starter does not play
+                m = 1.0 + (BACKUP_LIFT[pos] - 1.0) * miss
+                if m > 1.005 and not (wk == current and q["locked"]):
+                    q["proj"][k] = round(q["proj"][k] * m, 2)
+                    q["projIf"][k] = round(q["projIf"][k] * m, 2)
+                    q["lift"][k] = round(m, 3)
+            if q["lift"]:
+                q["ros"] = round(sum(v for wk, v in ((int(a), b) for a, b in q["proj"].items()) if current < wk <= REG_WEEKS), 1)
+                q["playoffs"] = round(sum(v for wk, v in ((int(a), b) for a, b in q["proj"].items()) if wk > REG_WEEKS), 1)
+                m0 = q["lift"].get(str(current))
+                if m0:
+                    note = f"{starter['name']} may miss: +{round((m0 - 1) * 100)}% opportunity"
+                    q["injNote"] = f"{q['injNote']}. {note}" if q["injNote"] else note
 
     # Position ranks: ours (regular season rest + 1.5x playoff weeks) vs ESPN season projection.
     for pos in CV:
