@@ -223,7 +223,7 @@ Rank by expected decision value, evidence, feasibility and testability. Do not i
 
 Success means the user understands what to build, why it could improve decisions, how the data supports it, how to test it, and what would prove it wrong.
 
-## App context snapshot (as of Oct 15, 2026; verify against the code)
+## App context snapshot (as of Oct 16, 2026; verify against the code)
 
 - **League:** ESPN league 1065732, 12 teams, redraft, half PPR.
   - Lineup: QB, 2 RB, 2 WR, TE, 2 FLEX (RB/WR/TE); 7 bench; 2 IR.
@@ -233,8 +233,12 @@ Success means the user understands what to build, why it could improve decisions
 - **Projections** (`fantasy/engine.py`, Python):
   - Rate = observed points per game blended with an ESPN prior worth 6 games. The prior is 0.6 × ESPN's weekly projection + 0.4 × ESPN's season projection / 17.
   - Then a usage-trend adjustment (±6%), a Jev news adjustment (±4%), and an opponent factor (0.85–1.15).
-  - Availability rules (assumed, not tested): IR = out 4 weeks, OUT = out 1 week.
-  - Weekly spread = position default (CV) blended with the player's actual spread.
+  - Availability (`availability()` in `engine.py`; Out/IR timing still assumed: IR = out 4 weeks, OUT = out 1 week, unless a Jev news timeline says otherwise):
+    - Questionable or day-to-day, current week: chance to play by Friday practice report, from 2025 nflverse: Full 75%, Limited 63%, Did not practice 50%; 63% if no report. Measured overall about 59% played. QBs listed questionable played only 25% (n=24), not yet special-cased.
+    - If a questionable or doubtful player does play, he scores about 88% of usual (`Q_IF_PLAYS`). Doubtful in the current week: 3% to play; 80% the next week.
+    - Expected points = chance to play × points if he plays. Each player carries `proj` (expected), `projIf` (if he plays) and `playP`. The Desk toggle "Expected / If he plays" swaps `proj` for `projIf`.
+    - Backups (`BACKUP_LIFT` = 1.4 for RB and WR only, next two by rate behind the team's top man): lift = 1 + 0.4 × the starter's chance of missing the week. Measured on 2025: next men score about 1.6× when the starter is Out or Doubtful (80% range 1.1–2.1); TE shows no reliable lift; a questionable starter who plays gives no lift. Shrunk to 1.4 because a backup's own average already includes some starter-less games. Not yet validated on 2026 (only 9 backups so far had a starter who did not play); the weekly scorecard task tracks it.
+  - Weekly spread = position default (CV) blended with the player's actual spread. Floor and ceiling are asymmetric 10th/90th percentiles: floor = expected − 1.57 sd (not below 0), ceiling = expected + 2.09 sd, fit and checked out of sample on the replay.
 - **Decision engine** (`web/src/engine`, TypeScript):
   - Greedy best lineup. The unit everywhere is weighted starting points per week.
   - Simulation: 3,000 seasons, same random draws reused across scenarios, season-long strength error with sd 5, about ±2 points of noise in title odds between runs.
@@ -247,6 +251,8 @@ Success means the user understands what to build, why it could improve decisions
   - Supabase `league_transactions` holds every ESPN transaction, backfilled for the season.
   - `player_week_projections` holds `app_live` rows logged at each build, `app_replay` (point-in-time backfill for weeks 1–5) and `app_replay_hindsight` (leaky; for comparison only).
   - `fantasy_snapshots` holds the full app output at each build.
+  - `injuries` holds nflverse weekly report and practice status (2026; 2025 was analysed from the nflverse files, not stored).
+  - A scheduled task, "Weekly projection scorecard" (Tuesdays), fills `actual` on `app_live` rows and scores the app against ESPN, plus the floor/ceiling check.
 - **Known findings:**
   - The point-in-time replay ties ESPN's weekly projection: MAE about 5.0 and rank correlation about 0.57 in weeks 2–5. The app's adjustments have not yet shown measurable accuracy gains.
   - Through week 6 there has been one accepted trade in the league (Uncle Beef ↔ Mike_ Ditka_89). The user's roughly 15 offers were all declined or canceled. Uncle Beef is the most active trader.
