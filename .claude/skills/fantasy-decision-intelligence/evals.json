@@ -1,0 +1,29 @@
+{
+ "skill_name": "fantasy-decision-intelligence",
+ "evals": [
+  {
+   "id": 1,
+   "prompt": "My desk app says Winston + DeVonta Smith + Tyler Warren to Lizard King for Rhamondre Stevenson is a B+, about 38% they accept, my title odds go from 31.1% to 33.9%, +1.33 weighted pts/wk for me and +0.4 for them. Trace how it got those numbers from the code and tell me which parts I should actually trust and which are guesses. The repo snapshot is in the materials folder.",
+   "expected_output": "A traced pipeline (projection -> lineup value -> sim -> score/grade -> acceptance -> ranking) citing code, labeling verified/inferred/assumed, flagging the untested acceptance logistic against the league's 1-accepted-trade base rate, the score double-count, sim noise vs the 2.8-pt title change, and lineup-level effects of a 3-for-1; ends with concrete next steps.",
+   "files": [
+    "materials/nfl-fantasy"
+   ]
+  },
+  {
+   "id": 2,
+   "prompt": "We have nflverse weekly stats, snap counts, Sleeper trending adds, ESPN rostered % and Jev news judgments in Supabase. What are we underusing for waiver decisions, and how would we prove a change actually helps before I build it? Materials folder has the repo snapshot.",
+   "expected_output": "A data-to-decision map for waivers grounded in waivers.ts/engine.py, identification of underused fields (snap trends, target share, Jev role, Sleeper hype vs fit), hypotheses with the 6-question test for each, explicit point-in-time and leakage concerns, a baseline and decision-policy validation design, and reasons not to build.",
+   "files": [
+    "materials/nfl-fantasy"
+   ]
+  },
+  {
+   "id": 3,
+   "prompt": "Before I keep ranking trades by the acceptance %, design a test of whether it's any good. We only have this season's offers logged (one accepted trade in the whole league so far) and I'll keep logging going forward. Materials folder has the repo snapshot.",
+   "expected_output": "Separates calibration from ranking value; uses league_transactions base rates and per-manager activity; proposes a simple baseline (constant base rate / manager-specific) vs the logistic; prospective logging protocol with pre-registered metrics (Brier, log loss, reliability bins with wide intervals); acknowledges tiny sample and unobservable counterfactuals; adoption/rejection criteria; smallest useful experiment.",
+   "files": [
+    "materials/nfl-fantasy"
+   ]
+  }
+ ]
+}
