@@ -341,3 +341,28 @@ button.ghost { background: transparent; border: 1px solid var(--line); border-ra
 .dot.fa { background: var(--up); border-color: var(--up); }
 .dot.mine { background: var(--amber); border-color: var(--amber); }
 .dot.taken { background: var(--mid); border-color: var(--mid); opacity: 0.6; }
+
+/* Player profile (replaces the range chart on click) */
+.profile-head { display: flex; gap: 14px; align-items: center; margin: 6px 0 12px; }
+.profile-head .profile-id { flex: 1; min-width: 0; }
+.profile-head h3 { margin: 0 0 2px; font-size: 22px; }
+.ptiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.ptile { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.ptile b { font-size: 22px; font-family: var(--mono); }
+.ptile-l { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); }
+.ptile-s { font-size: 11px; color: var(--muted); }
+.ptile.amber b { color: var(--amber); } .ptile.up b { color: var(--up); } .ptile.down b { color: var(--down); }
+.profile .weekly svg { max-height: 190px; }
+.pgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 22px; margin-top: 10px; }
+.pgrid h4 { margin: 12px 0 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); }
+.facts.wide { grid-template-columns: 120px minmax(0, 1fr); }
+.sched { display: grid; grid-template-columns: repeat(auto-fit, minmax(46px, 1fr)); gap: 4px; margin: 8px 0 4px; }
+.sched-c { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 2px; text-align: center; font-size: 11px; display: flex; flex-direction: column; font-family: var(--mono); }
+.sched-c span { color: var(--muted); font-size: 10px; }
+.sched-c.soft { border-color: var(--up); } .sched-c.tough { border-color: var(--down); }
+.sched-c.now { background: var(--panel); outline: 1px solid var(--amber); }
+@media (max-width: 760px) {
+  .ptiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pgrid { grid-template-columns: minmax(0, 1fr); }
+  .profile-head h3 { font-size: 18px; }
+}

@@ -66,7 +66,10 @@ export function playoffSos(d: FantasyData, p: Player): number {
   return f.reduce((a, b) => a + b, 0) / f.length
 }
 
-export const sosLabel = (x: number) => `${x >= 1 ? '+' : ''}${((x - 1) * 100).toFixed(0)}%`
+export const sosLabel = (x: number) => {
+  const v = Math.round((x - 1) * 100)
+  return `${v > 0 ? '+' : ''}${v === 0 ? 0 : v}%`
+}
 
 export function buildPlan(d: FantasyData, lab: TradeLab, ranks: Ranks, sim: SimResult, trades: TradeEval[], waivers: WaiverPick[]): Plan {
   const me = lab.myId

@@ -3,6 +3,7 @@ import type { Player } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useFocus, useNumbered } from '../focus'
 import { RangeChart } from '../components/RangeChart'
+import { PlayerProfile } from '../components/PlayerProfile'
 import { weekAdvice } from '../engine/advice'
 import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, signed } from '../components/bits'
 import { hot } from '../components/bits'
@@ -63,6 +64,8 @@ export function Roster() {
   const { setPinned } = useFocus()
   const [rangeTeam, setRangeTeam] = useState(me)
   const [rangeWeek, setRangeWeek] = useState(d.meta.week)
+  const [profile, setProfile] = useState<Player | null>(null)
+  const pick = (pl: Player) => { setPinned(pl); setProfile(pl) }
   const weeks = Array.from({ length: d.meta.lastWeek - d.meta.week + 1 }, (_, i) => d.meta.week + i)
   return (
     <div className="screen">
@@ -93,7 +96,7 @@ export function Roster() {
           <h2>Floor, expected, ceiling</h2>
           <div className="range-pick">
             <label>Team{' '}
-              <select value={rangeTeam} onChange={(e) => setRangeTeam(Number(e.target.value))} aria-label="Team">
+              <select value={rangeTeam} onChange={(e) => { setRangeTeam(Number(e.target.value)); setProfile(null) }} aria-label="Team">
                 {[...d.teams].sort((a, b) => (a.id === me ? -1 : b.id === me ? 1 : a.name.localeCompare(b.name))).map((t) => (
                   <option key={t.id} value={t.id}>{t.name} ({t.wins}-{t.losses})</option>
                 ))}
@@ -106,8 +109,14 @@ export function Roster() {
             </label>
           </div>
         </div>
-        <p className="muted small">Each player's projected half-PPR points: the dot is the expected score, the bar runs from a bad week (10th percentile) to a big week (90th percentile). Click a player for his card.</p>
-        <RangeChart roster={lab.rosters.get(rangeTeam) ?? []} week={rangeWeek} onPick={setPinned} />
+        {profile ? (
+          <PlayerProfile p={profile} week={rangeWeek} onBack={() => setProfile(null)} />
+        ) : (
+          <>
+            <p className="muted small">Each player's projected half-PPR points: the dot is the expected score, the bar runs from a bad week (10th percentile) to a big week (90th percentile). Click a player to open his profile.</p>
+            <RangeChart roster={lab.rosters.get(rangeTeam) ?? []} week={rangeWeek} onPick={pick} />
+          </>
+        )}
       </section>
 
       <section className="panel">
