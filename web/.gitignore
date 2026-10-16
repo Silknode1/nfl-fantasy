@@ -8,3 +8,6 @@ shot-*.png
 
 # One-off analysis scripts (scratch paths, not part of the app)
 scripts/probe*.ts
+
+# TypeScript incremental build cache
+*.tsbuildinfo
