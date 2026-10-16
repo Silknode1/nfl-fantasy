@@ -2,12 +2,20 @@ import { useState } from 'react'
 import type { Player } from '../types'
 import { fmt } from './bits'
 
-/** 10th and 90th percentile of a player's week: expected ± 1.28 weekly spreads, floor not below zero. */
-export const Z90 = 1.2816
+/**
+ * 10th and 90th percentile of a player's week, floor not below zero.
+ * Calibrated on point-in-time replays of weeks 2-5 (925 player-weeks): actual scores miss the old
+ * symmetric +/-1.28 sd band about 40% of the time (target 20%) because the spread is ~1.45x too small and
+ * outcomes skew high (touchdowns). Quantiles fitted on weeks 2-3 and tested on 4-5 gave 11.9% below the
+ * floor and 14.8% above the ceiling (target 10% each), versus 19.2% and 21.7% before.
+ * Re-check with the weekly scorecard; refit once 6+ live weeks exist.
+ */
+export const Z_FLOOR = 1.57
+export const Z_CEIL = 2.09
 export function weekRange(p: Player, week: number) {
   const e = p.proj[String(week)] ?? 0
   if (e <= 0) return null
-  return { floor: Math.max(0, e - Z90 * p.sd), exp: e, ceil: e + Z90 * p.sd }
+  return { floor: Math.max(0, e - Z_FLOOR * p.sd), exp: e, ceil: e + Z_CEIL * p.sd }
 }
 
 const GROUP = (p: Player) => (p.slot === 'IR' ? 'IR' : p.slot === 'BE' ? 'Bench' : 'Starters')

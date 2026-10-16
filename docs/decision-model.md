@@ -29,7 +29,7 @@ Tags: **[V]** verified in code or data · **[A]** assumption, never tested · **
   - Opponent factor: points the defense allows to the position, shrunk with weight g/(g+8), capped at 0.85–1.15 [A].
   - Availability: IR = out 4 weeks, OUT = out 1 week, unless a Jev-read news timeline says otherwise [A].
 - Spread (sd) = CV[pos] × rate, blended 50/50 with the player's own spread once he has 3+ games. CV: QB 0.38, RB 0.50, WR 0.55, TE 0.60 [A].
-- Floor/ceiling shown in the app = projection ± 1.2816 × sd, floor not below 0. This normal shape ignores the chance a player doesn't play at all [A].
+- Floor/ceiling shown in the app = projection − 1.57 × sd and + 2.09 × sd (10th/90th percentile), floor not below 0 [V, fitted on replay weeks 2–3, held-out weeks 4–5: 11.9% below floor, 14.8% above ceiling; the old ±1.2816 × sd missed 19.2% / 21.7%]. The sd itself is ~1.45× too small (actual error sd ÷ model sd = 1.38–1.53 at every position) and outcomes skew high, hence the asymmetric multipliers. Still ignores the chance a player doesn't play at all [A]. Pooled across positions; per-position fits are too noisy at this sample size.
 
 ## Decision engine (TypeScript) [V]
 - **Value unit.** Weighted starting points per week from next week through Week 17, playoff weeks × 1.5 (`playerValue`, `outlook`).
@@ -108,4 +108,5 @@ ID joins: ESPN id ↔ gsis ↔ sleeper id through the `players` table. Some Slee
 - 2026-10-11: Counteroffer finder and "likely decline" flag added.
 - 2026-10-13: Fixed `weekAdvice` swap pairing.
 - 2026-10-15: Waiver pulse, range chart, `trends.py`. Transaction and projection logging. Weeks 1–5 backfill. Code committed.
+- 2026-10-16: Projection scorecard (replay weeks 2–5): app ties ESPN (MAE 5.01 vs 5.00); usage trend, Jev and opponent factor each move MAE ≤0.01 (Jev untestable, 1 of 925 rows); blending observed scoring helps RB, hurts QB/TE. Floor/ceiling widened to 1.57/2.09 sd (see above). Weekly scorecard task runs Tuesdays 12:19 PM CT.
 - 2026-10-15: Skill evals found the B+ double count, the 31% intercept share, and that acceptance isn't persisted.
