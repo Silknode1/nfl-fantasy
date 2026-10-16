@@ -37,7 +37,7 @@ The app's data lives in Supabase project `nkflnmkdiplllohvtmyn`, schema `public`
   - `fantasy_snapshots`: one row per build, holding the full app JSON in `data` (players with `proj` by week, `sd`, `rate`, `rateParts`, `inj`; plus teams, meta and trends). Pull only the fields you need with `jsonb_array_elements(data->'players')`; the whole document is about 750 KB.
   - `league_transactions`: every ESPN transaction. Trade offers are `TRADE_PROPOSAL`; outcomes are `TRADE_ACCEPT`, `TRADE_DECLINE`, or a `CANCELED` row with `related_id`. Other teams' trades appear only as accept/decline events.
   - `player_week_projections`: `app_live` (logged at each build), `app_replay` (point-in-time backfill) and `app_replay_hindsight` (leaky; never use it for evaluation).
-  - Source tables: `weekly_stats`, `snap_counts`, `players` (ID crosswalk), `schedules`, `sleeper_trending`, `jev_judgments`, `news_items`, `espn_league_rosters`.
+  - Source tables: `weekly_stats`, `snap_counts`, `injuries` (report and practice status by week), `players` (ID crosswalk), `schedules`, `sleeper_trending`, `jev_judgments`, `news_items`, `espn_league_rosters`.
 - **Writes.** Don't write except to logging tables the user has approved. Never alter or drop tables without explicit approval.
 
 ## Modes
