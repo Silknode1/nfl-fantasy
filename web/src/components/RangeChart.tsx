@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Player } from '../types'
 import { fmt } from './bits'
+import { PlayerLink, TeamLink } from './links'
 
 /**
  * 10th and 90th percentile of a player's week, floor not below zero.
@@ -87,7 +88,7 @@ export function RangeChart({ roster, week, onPick }: { roster: Player[]; week: n
       <figcaption>
         {h ? (
           <span>
-            <b>{h.p.name}</b> {h.p.pos} {h.p.nfl}:{' '}
+            <PlayerLink id={h.p.id} name={h.p.name} /> {h.p.pos} <TeamLink abbr={h.p.nfl} />:{' '}
             {h.r ? <>ceiling <b className="c-ceil">{fmt(h.r.ceil)}</b>, expected <b className="c-exp">{fmt(h.r.exp)}</b>, floor <b className="c-floor">{fmt(h.r.floor)}</b></> : 'not projected to play this week'}
           </span>
         ) : (
