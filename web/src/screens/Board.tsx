@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchGameContext, fetchScoreboard } from '../board/load'
+import { useOptionalEngine } from '../dataContext'
+import { PlayerLink, TeamLink } from '../components/links'
 import {
   filterGames,
   formatAmerican,
@@ -39,13 +41,20 @@ function when(iso: string): string {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+function KnownName({ name }: { name: string }) {
+  const players = useOptionalEngine()?.d.players ?? []
+  const hit = players.find((p) => p.name.toLowerCase() === name.toLowerCase())
+  if (!hit) return <b>{name}</b>
+  return <PlayerLink id={hit.id} name={hit.name} />
+}
+
 function TeamLine({ side, line, price, showScore }: { side: BoardGame['home']; line: number | null; price: number | null; showScore: boolean }) {
   return (
     <div className="gteam">
       <span className="gswatch" style={{ background: side.color }} aria-hidden />
       {side.logo ? <img src={side.logo} alt="" width={28} height={28} /> : <span className="glogo-fallback">{side.abbr.slice(0, 1)}</span>}
       <span className="gname">
-        <b>{side.abbr}</b>
+        <TeamLink abbr={side.abbr} />
         <small>{side.name}{side.record ? ` · ${side.record}` : ''}</small>
       </span>
       {showScore ? <b className="gscore">{side.score ?? '—'}</b> : (
@@ -72,7 +81,7 @@ function MarketCol({ title, primary, price, extra }: { title: string; primary: s
 function TeamReport({ team }: { team: TeamContext }) {
   return (
     <section>
-      <h3>{team.abbr}</h3>
+      <h3><TeamLink abbr={team.abbr} /></h3>
       {team.gapNote ? <p>{team.gapNote}</p> : <p className="muted">No recent scores on this pull.</p>}
       {team.recent.length > 0 && (
         <ol className="recent">
@@ -90,7 +99,7 @@ function TeamReport({ team }: { team: TeamContext }) {
           {team.injuries.map((inj) => (
             <li key={`${inj.name}-${inj.status}`}>
               <span className={`inj inj-${inj.status === 'Out' ? 'OUT' : inj.status === 'Doubtful' ? 'DOUBTFUL' : 'QUESTIONABLE'}`}>{inj.status}</span>
-              <b>{inj.name}</b>
+              <KnownName name={inj.name} />
               <small>{inj.pos}{inj.detail ? ` · ${inj.detail}` : ''}</small>
             </li>
           ))}
@@ -101,7 +110,7 @@ function TeamReport({ team }: { team: TeamContext }) {
   )
 }
 
-function Detail({ game, ctx }: { game: BoardGame; ctx: GameContext | 'loading' | 'error' | undefined }) {
+export function GameDetail({ game, ctx }: { game: BoardGame; ctx: GameContext | 'loading' | 'error' | undefined }) {
   const q = game.quote
   const sentences = movementSentences(game)
   const script = scriptNote(game)
@@ -146,7 +155,10 @@ function Detail({ game, ctx }: { game: BoardGame; ctx: GameContext | 'loading' |
       <p className="muted">The price next to a line is what that side costs. A move from the open is the market changing its mind. Neither one is a side to take.</p>
       {game.leaders.length > 0 && (
         <p className="leaders">
-          Season leaders: {game.leaders.map((l) => `${l.name} ${l.stat}`).join(' · ')}
+          Season leaders:{' '}
+          {game.leaders.map((l, i) => (
+            <span key={`${l.name}-${l.stat}`}>{i > 0 ? ' · ' : ''}<KnownName name={l.name} /> {l.stat}</span>
+          ))}
         </p>
       )}
       {ctx === 'loading' && <p className="loading">Injury report and last five</p>}
@@ -154,7 +166,7 @@ function Detail({ game, ctx }: { game: BoardGame; ctx: GameContext | 'loading' |
       {ctx && ctx !== 'loading' && ctx !== 'error' && (
         <>
           {ctx.predictor && (
-            <p>ESPN's matchup predictor has {game.home.abbr} at {ctx.predictor.home}% and {game.away.abbr} at {ctx.predictor.away}%. That is ESPN's model, separate from the market price.</p>
+            <p>ESPN's matchup predictor has <TeamLink abbr={game.home.abbr} /> at {ctx.predictor.home}% and <TeamLink abbr={game.away.abbr} /> at {ctx.predictor.away}%. That is ESPN's model, separate from the market price.</p>
           )}
           <div className="team-reports">
             <TeamReport team={ctx.away} />
@@ -184,9 +196,13 @@ function Card({ game, open, ctx, onToggle }: { game: BoardGame; open: boolean; c
           {chips.length > 0 && (
             <span className="gchips">{chips.map((c) => <em key={c}>{c}</em>)}</span>
           )}
+          <a className="dest" href={`#game/${encodeURIComponent(game.id)}`}>Open game</a>
         </div>
+      </div>
+      <button type="button" className="gexpand" aria-expanded={open} onClick={onToggle}>
+        {open ? 'Hide the line' : 'Line, injuries, last five'}
       </button>
-      {open && <Detail game={game} ctx={ctx} />}
+      {open && <GameDetail game={game} ctx={ctx} />}
     </article>
   )
 }
@@ -310,7 +326,7 @@ export function Board() {
           <h2>Week {board.week || '—'}{board.season ? ` · ${board.season}` : ''}</h2>
           <p className="muted">
             {source === 'live' ? 'Live scoreboard' : 'Saved scoreboard, ESPN did not answer'} · {when(board.fetchedAt)}
-            {board.byes.length > 0 ? ` · Bye: ${board.byes.map((b) => b.abbr).join(', ')}` : ''}
+            {board.byes.length > 0 ? <> · Bye:{board.byes.map((b, i) => <span key={b.abbr}>{i ? ', ' : ' '}<TeamLink abbr={b.abbr}>{b.abbr}</TeamLink></span>)}</> : null}
           </p>
           {error && <p>{error}</p>}
         </div>
@@ -322,16 +338,24 @@ export function Board() {
       <div className="slate-stats">
         <div><small>Upcoming</small><b>{counts.pre}</b></div>
         <div><small>Median total</small><b>{slate.median ?? '—'}</b></div>
-        <button type="button" disabled={!slate.high} onClick={() => slate.high && openGame(slate.high.id)}>
-          <small>Highest total</small>
-          <b>{slate.high?.quote?.total ?? '—'}</b>
-          <em>{slate.high ? `${slate.high.away.abbr} @ ${slate.high.home.abbr}` : ''}</em>
-        </button>
-        <button type="button" disabled={!slate.wide} onClick={() => slate.wide && openGame(slate.wide.id)}>
-          <small>Biggest spread</small>
-          <b>{slate.wide?.quote?.homeSpread != null ? Math.abs(slate.wide.quote.homeSpread).toFixed(1) : '—'}</b>
-          <em>{slate.wide ? `${slate.wide.away.abbr} @ ${slate.wide.home.abbr}` : ''}</em>
-        </button>
+        {slate.high ? (
+          <a className="slate-jump" href={`#game/${encodeURIComponent(slate.high.id)}`}>
+            <small>Highest total</small>
+            <b>{slate.high.quote?.total ?? '—'}</b>
+            <em>{slate.high.away.abbr} @ {slate.high.home.abbr}</em>
+          </a>
+        ) : (
+          <div><small>Highest total</small><b>—</b></div>
+        )}
+        {slate.wide ? (
+          <a className="slate-jump" href={`#game/${encodeURIComponent(slate.wide.id)}`}>
+            <small>Biggest spread</small>
+            <b>{slate.wide.quote?.homeSpread != null ? Math.abs(slate.wide.quote.homeSpread).toFixed(1) : '—'}</b>
+            <em>{slate.wide.away.abbr} @ {slate.wide.home.abbr}</em>
+          </a>
+        ) : (
+          <div><small>Biggest spread</small><b>—</b></div>
+        )}
       </div>
 
       <div className="board-tools">

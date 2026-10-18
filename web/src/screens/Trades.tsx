@@ -5,9 +5,10 @@ import { useNumbered } from '../focus'
 import { DECLINE_BELOW, KIND_LABEL, kindOf, type TradeEval } from '../engine/trade'
 import { tradeSummary, verdict, ordinal } from '../engine/summary'
 import { Avatar, GradeMark, InjuryTag, fmt, pct, signed } from '../components/bits'
+import { PlayerLink, TeamLink } from '../components/links'
 
 function Side({ title, players }: { title: string; players: Player[] }) {
-  const { lab } = useEngineCtx()
+  const { lab, tradeOf } = useEngineCtx()
   return (
     <div className="side">
       <h3>{title}</h3>
@@ -15,9 +16,9 @@ function Side({ title, players }: { title: string; players: Player[] }) {
         <div key={p.id} className="side-p">
           <Avatar p={p} size={72} />
           <div>
-            <div className="pname">{p.name} <InjuryTag p={p} /></div>
-            <div className="pmeta"><span>{p.pos}</span><span>{p.nfl}</span></div>
-            <div className="pmeta"><span><b>{fmt(p.ppg)}</b> pts/g</span><span><b>{fmt(lab.v(p))}</b> ROS/wk</span></div>
+            <div className="pname"><PlayerLink id={p.id} name={p.name} /> <InjuryTag p={p} /></div>
+            <div className="pmeta"><span>{p.pos}</span><TeamLink abbr={p.nfl} /></div>
+            <div className="pmeta"><span><b>{fmt(p.ppg)}</b> pts/g</span><span><b>{fmt(lab.v(p))}</b> ROS/wk</span><span><b>{signed(tradeOf(p).surplus)}</b> trade</span></div>
           </div>
         </div>
       ))}
@@ -146,19 +147,19 @@ function Builder({ onEval }: { onEval: (ev: TradeEval | null) => void }) {
         <fieldset>
           <legend>You give (up to 3)</legend>
           {mine.map((p) => (
-            <label key={p.id} className="pick">
-              <input type="checkbox" checked={give.includes(p.id)} onChange={() => toggle(give, setGive, p.id)} />
-              <span>{p.name}</span><small>{p.pos} {fmt(lab.v(p))}</small>
-            </label>
+            <div key={p.id} className="pick">
+              <input type="checkbox" checked={give.includes(p.id)} onChange={() => toggle(give, setGive, p.id)} aria-label={`Give ${p.name}`} />
+              <PlayerLink id={p.id} name={p.name} /><small>{p.pos} {fmt(lab.v(p))}</small>
+            </div>
           ))}
         </fieldset>
         <fieldset>
           <legend>You get (up to 3)</legend>
           {theirs.map((p) => (
-            <label key={p.id} className="pick">
-              <input type="checkbox" checked={get.includes(p.id)} onChange={() => toggle(get, setGet, p.id)} />
-              <span>{p.name}</span><small>{p.pos} {fmt(lab.v(p))}</small>
-            </label>
+            <div key={p.id} className="pick">
+              <input type="checkbox" checked={get.includes(p.id)} onChange={() => toggle(get, setGet, p.id)} aria-label={`Get ${p.name}`} />
+              <PlayerLink id={p.id} name={p.name} /><small>{p.pos} {fmt(lab.v(p))}</small>
+            </div>
           ))}
         </fieldset>
       </div>

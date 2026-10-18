@@ -16,3 +16,8 @@ export function useEngineCtx(): Engine {
 export function useData() {
   return useEngineCtx().d
 }
+
+/** League file when it loaded. Destinations that also work from ESPN use this. */
+export function useOptionalEngine(): Engine | null {
+  return useContext(Ctx)
+}

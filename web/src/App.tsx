@@ -13,25 +13,34 @@ import { VsEspn } from './screens/VsEspn'
 import { Plan } from './screens/Plan'
 import { Pulse } from './screens/Pulse'
 import { Board } from './screens/Board'
+import { NewsPage } from './screens/NewsPage'
+import { PlayerPage } from './screens/PlayerPage'
+import { TeamPage } from './screens/TeamPage'
+import { GamePage } from './screens/GamePage'
 import { pct } from './components/bits'
+import { noteHash } from './deskHistory'
+import { navCurrent, parseRoute, type Route, type ScreenId } from './route'
 
-const SCREENS = [
-  { id: 'games', label: 'Games', el: <Board /> },
-  { id: 'team', label: 'My team', el: <Roster /> },
-  { id: 'trades', label: 'Trades', el: <Trades /> },
-  { id: 'waivers', label: 'Waivers', el: <Waivers /> },
-  { id: 'pulse', label: 'Waiver pulse', el: <Pulse /> },
-  { id: 'league', label: 'League', el: <League /> },
-  { id: 'espn', label: 'Vs ESPN', el: <VsEspn /> },
-  { id: 'plan', label: 'Season plan', el: <Plan /> },
-] as const
+const NAV: { id: ScreenId; label: string }[] = [
+  { id: 'team', label: 'My team' },
+  { id: 'trades', label: 'Trades' },
+  { id: 'waivers', label: 'Waivers' },
+  { id: 'pulse', label: 'Waiver pulse' },
+  { id: 'league', label: 'League' },
+  { id: 'espn', label: 'Vs ESPN' },
+  { id: 'plan', label: 'Season plan' },
+  { id: 'news', label: 'News' },
+  { id: 'games', label: 'Games' },
+]
 
-type ScreenId = (typeof SCREENS)[number]['id']
-
-function readHash(): ScreenId {
-  const h = window.location.hash.replace('#', '')
-  if (!h) return 'games'
-  return (SCREENS.find((s) => s.id === h)?.id ?? 'games') as ScreenId
+const LEAGUE_SCREENS: Partial<Record<ScreenId, JSX.Element>> = {
+  team: <Roster />,
+  trades: <Trades />,
+  waivers: <Waivers />,
+  pulse: <Pulse />,
+  league: <League />,
+  espn: <VsEspn />,
+  plan: <Plan />,
 }
 
 type ProjMode = 'expected' | 'plays'
@@ -65,6 +74,20 @@ function withMode(d: FantasyData | null, mode: ProjMode): FantasyData | null {
   }
 }
 
+function useRoute(): Route {
+  const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash))
+  useEffect(() => {
+    const sync = () => {
+      noteHash(window.location.hash || '#team')
+      setRoute(parseRoute(window.location.hash))
+    }
+    sync()
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
+  return route
+}
+
 export function App() {
   const [rawData, setData] = useState<FantasyData | null>(null)
   const [mode, setModeState] = useState<ProjMode>(readMode)
@@ -78,22 +101,17 @@ export function App() {
   }
   const data = useMemo(() => withMode(rawData, mode), [rawData, mode])
   const [error, setError] = useState<string | null>(null)
-  const [screen, setScreen] = useState<ScreenId>(readHash)
+  const route = useRoute()
   const engine = useEngine(data)
+  const current = navCurrent(route)
 
   useEffect(() => {
     loadData().then(setData).catch((e: Error) => setError(e.message))
-    const onHash = () => setScreen(readHash())
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  const go = (id: ScreenId) => {
-    window.location.hash = id
-    setScreen(id)
-  }
-  const onBoard = screen === 'games'
-  const showRail = Boolean(engine) && !onBoard
+  const onBoard = current === 'games'
+  const bareTitle = route.kind === 'nfl' ? route.abbr : route.kind === 'player' ? 'Player' : route.kind === 'game' ? 'Game' : route.id === 'news' ? 'News' : route.id === 'games' ? 'Games' : 'My team'
+  const showRail = Boolean(engine) && route.kind === 'screen' && route.id !== 'games' && route.id !== 'news'
   const desk = engine
     ? {
         me: engine.d.teams.find((t) => t.id === engine.d.meta.myTeamId)!,
@@ -101,8 +119,22 @@ export function App() {
       }
     : null
 
+  let main: JSX.Element
+  if (route.kind === 'player') main = <PlayerPage id={route.id} />
+  else if (route.kind === 'nfl') main = <TeamPage abbr={route.abbr} />
+  else if (route.kind === 'game') main = <GamePage id={route.id} />
+  else if (route.id === 'games') main = <Board />
+  else if (route.id === 'news') main = <NewsPage />
+  else if (error) main = <div className="panel"><h2>Couldn't load your league</h2><p>{error}</p><p className="news-next"><a className="dest" href="#games">Games</a><a className="dest" href="#news">News</a></p></div>
+  else if (!engine) main = <p className="loading">Loading your league</p>
+  else main = LEAGUE_SCREENS[route.id] ?? <Roster />
+
   const shell = (
     <div className={showRail ? 'app' : 'app no-rail'}>
+      <div className="atmosphere" aria-hidden="true">
+        <span className="orb orb-a" />
+        <span className="orb orb-b" />
+      </div>
       <header className="masthead">
         {desk ? (
           <>
@@ -110,6 +142,7 @@ export function App() {
               <h1>{desk.me.name}</h1>
               <p className="sub">
                 {engine!.d.meta.leagueName}, {engine!.d.meta.scoring}, Week {engine!.d.meta.week}
+                <span className="model-tag">New model</span>
               </p>
             </div>
             <dl className="odds">
@@ -129,12 +162,12 @@ export function App() {
       </header>
 
       <nav className="nav" aria-label="Sections">
-        {SCREENS.map((s) => (
-          <a key={s.id} href={`#${s.id}`} className={screen === s.id ? 'on' : ''} aria-current={screen === s.id ? 'page' : undefined} onClick={(e) => { e.preventDefault(); go(s.id) }}>
+        {NAV.map((s) => (
+          <a key={s.id} href={`#${s.id}`} className={current === s.id ? 'on' : ''} aria-current={current === s.id ? 'page' : undefined}>
             {s.label}
           </a>
         ))}
-        {desk && !onBoard && (
+        {desk && !onBoard && route.kind === 'screen' && route.id !== 'news' && (
           <div className="modebox" role="group" aria-label="Projection view">
             <span className="modebox-label">Projections</span>
             <button type="button" className={mode === 'expected' ? 'on' : ''} aria-pressed={mode === 'expected'} onClick={() => setMode('expected')} title="Counts the chance an injured player sits (questionable about 63-75% to play)">Expected</button>
@@ -164,7 +197,7 @@ export function App() {
           ? 'Spread, total, and moneyline are one book (DraftKings) via ESPN. The price is the market. This page does not place a bet or name a side.'
           : engine
             ? `Sources: ${engine.d.meta.sources.join(', ')}. Projections, odds and acceptance chances are estimates from this app's model, not ESPN's.`
-            : 'League file not loaded.'}
+            : 'League file not loaded. Games, clubs, and news still come from the ESPN scoreboard.'}
       </footer>
     </div>
   )
