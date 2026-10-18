@@ -19,6 +19,7 @@ import { TeamPage } from './screens/TeamPage'
 import { GamePage } from './screens/GamePage'
 import { pct } from './components/bits'
 import { EmptyState, ShortcutChip, Skeleton, StatGroup, useMagneticHover } from './components/glass'
+import { LoreLine, QuietDot, useDeskLore } from './components/Lore'
 import { noteHash } from './deskHistory'
 import { navCurrent, parseRoute, type Route, type ScreenId } from './route'
 
@@ -153,6 +154,11 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  const tradeIds = useMemo(
+    () => (engine?.trades ?? []).flatMap((ev) => [...ev.trade.give, ...ev.trade.get].map((p) => p.id)),
+    [engine?.trades],
+  )
+  const lore = useDeskLore(route.kind, route.kind === 'nfl' ? route.abbr : route.kind === 'screen' ? route.id : route.id, data, tradeIds)
   const onBoard = current === 'games'
   const bareTitle = route.kind === 'nfl' ? route.abbr : route.kind === 'player' ? 'Player' : route.kind === 'game' ? 'Game' : route.id === 'news' ? 'News' : route.id === 'games' ? 'Games' : 'My team'
   const showRail = Boolean(engine) && route.kind === 'screen' && route.id !== 'games' && route.id !== 'news'
@@ -187,12 +193,18 @@ export function App() {
         {desk ? (
           <>
             <div className="team">
-              <p className="kicker"><span className="status-dot accent" aria-hidden />Fantasy desk</p>
+              <p className="kicker">
+                <QuietDot open={lore.quietOpen} onToggle={lore.setQuietOpen} />
+                <button type="button" className="mark-tap" onClick={lore.tapCoincidence}>Fantasy desk</button>
+              </p>
               <h1>{desk.me.name}</h1>
               <p className="sub">
-                {engine!.d.meta.leagueName}, {engine!.d.meta.scoring}, Week {engine!.d.meta.week}
+                {engine!.d.meta.leagueName}, {engine!.d.meta.scoring},{' '}
+                <button type="button" className="week-mark" onClick={lore.tapCoincidence}>Week {engine!.d.meta.week}</button>
                 <span className="model-tag">New model</span>
               </p>
+              {lore.quietOpen && <LoreLine onClose={() => lore.setQuietOpen(false)}>{lore.quietText ?? 'No starter has a projection this week.'}</LoreLine>}
+              {lore.coinOpen && <LoreLine onClose={() => lore.setCoinOpen(false)}>{lore.coinText ?? 'Nothing in the standings lines up this week.'}</LoreLine>}
             </div>
             <StatGroup
               label="Season snapshot"
@@ -220,12 +232,14 @@ export function App() {
       </header>
 
       <nav className="nav" aria-label="Sections">
-        {NAV.map((s) => (
-          <a key={s.id} href={`#${s.id}`} className={current === s.id ? 'on' : ''} aria-current={current === s.id ? 'page' : undefined}>
-            {s.label}
-            <ShortcutChip keys={s.key} />
-          </a>
-        ))}
+        <div className="nav-scroll">
+          {NAV.map((s) => (
+            <a key={s.id} href={`#${s.id}`} className={current === s.id ? 'on' : ''} aria-current={current === s.id ? 'page' : undefined}>
+              {s.label}
+              <ShortcutChip keys={s.key} />
+            </a>
+          ))}
+        </div>
         {desk && !onBoard && route.kind === 'screen' && route.id !== 'news' && (
           <div className="modebox" role="group" aria-label="Projection view">
             <span className="modebox-label">Projections</span>
@@ -246,6 +260,17 @@ export function App() {
       {showRail && <StatRail />}
 
       <footer className="foot">
+        {lore.explored && (
+          <div className="lore-foot">
+            <button type="button" className="notebook" aria-expanded={lore.noteOpen} onClick={() => lore.setNoteOpen((v) => !v)}>
+              <i className="status-dot accent" aria-hidden />
+              Notebook
+            </button>
+            <p className="lore-hint">Keys <kbd className="hint-key">G</kbd> <kbd className="hint-key">A</kbd> <kbd className="hint-key">P</kbd></p>
+          </div>
+        )}
+        {lore.noteOpen && lore.noteText && <LoreLine onClose={() => lore.setNoteOpen(false)}>{lore.noteText}</LoreLine>}
+        {lore.gapOpen && lore.gapText && <LoreLine onClose={() => lore.setGapOpen(false)}>{lore.gapText}</LoreLine>}
         {onBoard
           ? 'Spread, total, and moneyline are one book (DraftKings) via ESPN. The price is the market. This page does not place a bet or name a side.'
           : engine

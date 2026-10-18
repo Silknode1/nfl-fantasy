@@ -348,7 +348,7 @@ export function Board() {
           <h2>Week {board.week || '—'}{board.season ? ` · ${board.season}` : ''}</h2>
           <p className="muted">
             {source === 'live' ? 'Live scoreboard' : 'Saved scoreboard, ESPN did not answer'} · {when(board.fetchedAt)}
-            {board.byes.length > 0 ? <> · Bye:{board.byes.map((b, i) => <span key={b.abbr}>{i ? ', ' : ' '}<TeamLink abbr={b.abbr}>{b.abbr}</TeamLink></span>)}</> : null}
+            {board.byes.length > 0 ? <span className="bye-line"> · Bye: {board.byes.map((b, i) => <span key={b.abbr}>{i ? ', ' : ''}<TeamLink abbr={b.abbr}>{b.abbr}</TeamLink></span>)}</span> : null}
           </p>
           {error && <p>{error}</p>}
         </div>
@@ -405,7 +405,12 @@ export function Board() {
         <EmptyState
           title={query.trim() ? 'No match on the board' : 'Nothing in this window'}
           body={query.trim() ? `No game matches “${query.trim()}”. Try another club or clear the search.` : 'This group is empty. Switch to All, or check back closer to kickoff.'}
-        />
+        >
+          <p className="news-next">
+            <button type="button" className="primary" onClick={() => { userChose.current = true; setQuery(''); setFilter('all') }}>Show every game</button>
+            <a className="dest" href="#news">News</a>
+          </p>
+        </EmptyState>
       ) : (
         groups.map((group) => (
           <div key={group.label} className="window">

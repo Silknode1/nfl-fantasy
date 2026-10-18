@@ -133,7 +133,7 @@ function Builder({ onEval }: { onEval: (ev: TradeEval | null) => void }) {
     onEval(deepen(ev))
   }
   return (
-    <GlassCard className="builder">
+    <GlassCard className="builder" id="trade-builder">
       <h2>Build a trade</h2>
       <label className="field">
         Trade with
@@ -145,7 +145,7 @@ function Builder({ onEval }: { onEval: (ev: TradeEval | null) => void }) {
         <fieldset>
           <legend>You give (up to 3)</legend>
           {mine.map((p) => (
-            <div key={p.id} className="pick">
+            <div key={p.id} className="pick" onClick={(e) => { if ((e.target as HTMLElement).closest('a, input')) return; toggle(give, setGive, p.id) }}>
               <input type="checkbox" checked={give.includes(p.id)} onChange={() => toggle(give, setGive, p.id)} aria-label={`Give ${p.name}`} />
               <PlayerLink id={p.id} name={p.name} /><small>{p.pos} {fmt(lab.v(p))}</small>
             </div>
@@ -154,7 +154,7 @@ function Builder({ onEval }: { onEval: (ev: TradeEval | null) => void }) {
         <fieldset>
           <legend>You get (up to 3)</legend>
           {theirs.map((p) => (
-            <div key={p.id} className="pick">
+            <div key={p.id} className="pick" onClick={(e) => { if ((e.target as HTMLElement).closest('a, input')) return; toggle(get, setGet, p.id) }}>
               <input type="checkbox" checked={get.includes(p.id)} onChange={() => toggle(get, setGet, p.id)} aria-label={`Get ${p.name}`} />
               <PlayerLink id={p.id} name={p.name} /><small>{p.pos} {fmt(lab.v(p))}</small>
             </div>
@@ -164,6 +164,14 @@ function Builder({ onEval }: { onEval: (ev: TradeEval | null) => void }) {
       <button className="primary" disabled={!give.length || !get.length} onClick={run}>Grade this trade</button>
     </GlassCard>
   )
+}
+
+function jumpBuilder() {
+  const el = document.getElementById('trade-builder')
+  if (!el) return
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  window.setTimeout(() => el.querySelector('select')?.focus(), reduce ? 0 : 280)
 }
 
 type Tab = 'best' | '2for1' | '3for1' | 'reach' | '1for1'
@@ -201,7 +209,11 @@ export function Trades() {
           {board ? `Checked ${lab.searched.toLocaleString()} deals. ` : ''}{info.hint} Playoff weeks count 1.5×.
         </p>
         {!board && <Skeleton variant="rows" label={`Checking deals across 11 teams: ${progress.toLocaleString()} so far`} />}
-        {list?.length === 0 && <EmptyState title="No deal of this shape" body="Nothing both helps you and has a fair chance of a yes. Check back after waivers run, or build a trade yourself." />}
+        {list?.length === 0 && (
+          <EmptyState title="No deal of this shape" body="Nothing both helps you and has a fair chance of a yes. Check back after waivers run, or build a trade yourself.">
+            <p className="news-next"><button type="button" className="dest" onClick={jumpBuilder}>Build a trade</button><a className="dest" href="#waivers">Waivers</a></p>
+          </EmptyState>
+        )}
         <ol>
           {list?.map((ev) => {
             const partner = d.teams.find((t) => t.id === ev.trade.partnerId)!
@@ -226,7 +238,11 @@ export function Trades() {
         </ol>
       </GlassCard>
       <div className="trade-main">
-        {current ? <TradePreview ev={current} onPick={(e) => { setCustom(e) }} /> : !board ? <GlassCard><Skeleton variant="card" label="Grading trades" /></GlassCard> : <EmptyState title="Nothing to preview" body="This shape has no recommended deal. Switch tabs, or build a trade below." />}
+        {current ? <TradePreview ev={current} onPick={(e) => { setCustom(e) }} /> : !board ? <GlassCard><Skeleton variant="card" label="Grading trades" /></GlassCard> : (
+          <EmptyState title="Nothing to preview" body="This shape has no recommended deal. Switch tabs, or build a trade below.">
+            <p className="news-next"><button type="button" className="dest" onClick={jumpBuilder}>Build a trade</button></p>
+          </EmptyState>
+        )}
         <Builder onEval={setCustom} />
       </div>
     </div>
