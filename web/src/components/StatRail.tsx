@@ -3,6 +3,7 @@ import { useFocus } from '../focus'
 import { useEngineCtx } from '../dataContext'
 import { playoffSos, sosLabel } from '../engine/advice'
 import { Avatar, InjuryTag, RankDelta, fmt, signed } from './bits'
+import { EmptyState } from './glass'
 import { PlayerLink, TeamLink } from './links'
 import { WeeklyChart } from './WeeklyChart'
 
@@ -62,7 +63,9 @@ export function StatRail() {
           )}
         </section>
       )}
-      {!pinned && list.length === 0 && <p className="rail-empty">Click any player photo to see his weekly scoring, usage and news here.</p>}
+      {!pinned && list.length === 0 && (
+        <EmptyState title="No one pinned yet" body="Click a player photo and his week, usage, and news land here." />
+      )}
       <ol className="rail-list">
         {list.map((p, i) => {
           const tw = trendWord(p)

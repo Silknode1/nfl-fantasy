@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useOptionalEngine } from '../dataContext'
 import { fetchNewsBundle } from '../espn/load'
 import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
+import { EmptyState, GlassCard, NewsCard, Skeleton } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 
 function when(iso: string | null): string | null {
@@ -16,13 +17,10 @@ function Item({ item }: { item: NewsItem }) {
   const nextPlayer = item.playerId
   const nextTeam = item.teams[0]
   return (
-    <article className="news-card lift">
-      <p className="news-kicker">
-        {item.source === 'jev' ? 'League news' : item.source === 'scoreboard' ? 'Scoreboard' : 'ESPN'}
-        {stamp ? ` · ${stamp}` : ''}
-      </p>
-      <h3>
-        {item.url ? (
+    <NewsCard
+      kicker={`${item.source === 'jev' ? 'League news' : item.source === 'scoreboard' ? 'Scoreboard' : 'ESPN'}${stamp ? ` · ${stamp}` : ''}`}
+      title={
+        item.url ? (
           <a href={item.url} target="_blank" rel="noreferrer">{item.headline}</a>
         ) : nextPlayer ? (
           <PlayerLink id={nextPlayer} name={item.headline} />
@@ -30,9 +28,10 @@ function Item({ item }: { item: NewsItem }) {
           <TeamLink abbr={nextTeam}>{item.headline}</TeamLink>
         ) : (
           item.headline
-        )}
-      </h3>
-      {item.summary && <p>{item.summary}</p>}
+        )
+      }
+      summary={item.summary}
+    >
       <p className="news-next">
         {nextPlayer && <PlayerLink id={nextPlayer} name="Open player" />}
         {item.teams.map((abbr) => <TeamLink key={abbr} abbr={abbr} />)}
@@ -40,7 +39,7 @@ function Item({ item }: { item: NewsItem }) {
         {item.url && <a className="dest" href={item.url} target="_blank" rel="noreferrer">Read story</a>}
         {!nextPlayer && !nextTeam && !item.gameId && <a className="dest" href="#games">Open the week</a>}
       </p>
-    </article>
+    </NewsCard>
   )
 }
 
@@ -72,14 +71,19 @@ export function NewsPage() {
 
   return (
     <section className="screen">
-      <div className="panel">
+      <GlassCard featured lean>
         <h2>News</h2>
         <p className="muted">
-          Headlines saved on your players, then ESPN and the scoreboard when the league file has none. Each line goes to a player, a club, or the story.
+          Headlines saved on your players, then ESPN and the scoreboard when the league file is quiet. Each card opens a player, a club, or the story.
         </p>
         {gap && <p>{gap}</p>}
-      </div>
-      {items === null && <p className="loading">Loading headlines</p>}
+      </GlassCard>
+      {items === null && <Skeleton variant="rows" label="Loading headlines" />}
+      {items && items.length === 0 && (
+        <EmptyState title="No headlines yet" body="Nothing landed on this pull. The board is still open if you want the week instead.">
+          <p className="news-next"><a className="dest" href="#games">Open the week</a></p>
+        </EmptyState>
+      )}
       {items?.map((item) => <Item key={item.id} item={item} />)}
     </section>
   )

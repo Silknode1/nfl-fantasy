@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useEngineCtx } from '../dataContext'
 import { useNumbered } from '../focus'
 import { fmt, pct } from '../components/bits'
+import { GlassCard, RankingRow } from '../components/glass'
 
 const KEYS = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'BENCH', 'OVERALL'] as const
 const LABEL: Record<(typeof KEYS)[number], string> = { QB: 'QB', RB: 'RB', WR: 'WR', TE: 'TE', FLEX: 'Flex', BENCH: 'Bench', OVERALL: 'Lineup' }
 
 /** Sequential single hue: rank 1 brightest. Text stays in text tokens. */
-const cellBg = (rank: number) => `color-mix(in oklab, var(--up) ${Math.round(((12 - rank) / 11) * 62 + 6)}%, var(--panel))`
+const cellBg = (rank: number) => `color-mix(in oklab, var(--accent) ${Math.round(((12 - rank) / 11) * 46 + 8)}%, var(--panel))`
 
 export function League() {
   const { d, ranks, sim, lab } = useEngineCtx()
@@ -16,7 +17,24 @@ export function League() {
   const teams = [...d.teams].sort((a, b) => sim.title[b.id] - sim.title[a.id])
   return (
     <div className="screen">
-      <section className="panel">
+      <GlassCard featured lean>
+        <h2>Title board</h2>
+        <p className="muted small">Teams in order of this model's title odds. Yours stays marked. The number is an estimate, not a promise.</p>
+        <div className="rank-list">
+          {teams.map((t, i) => (
+            <RankingRow
+              key={t.id}
+              rank={i + 1}
+              name={t.name}
+              value={pct(sim.title[t.id])}
+              meta={`${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ''} · playoffs ${pct(sim.playoff[t.id])}`}
+              mine={t.id === d.meta.myTeamId}
+              tone={i === 0 ? 'up' : t.id === d.meta.myTeamId ? 'accent' : 'neutral'}
+            />
+          ))}
+        </div>
+      </GlassCard>
+      <GlassCard>
         <h2>Where every team stands</h2>
         <p className="muted small">
           Each cell is the team's league rank at that spot, from the rest-of-season value of its best starters (1 is best). Odds come from 3,000 simulated seasons: remaining schedule, wins then points for seeding, top six in, seeds one and two get byes. Odds move by about ±2 points between runs.
@@ -68,7 +86,7 @@ export function League() {
             </tbody>
           </table>
         </div>
-      </section>
+      </GlassCard>
     </div>
   )
 }

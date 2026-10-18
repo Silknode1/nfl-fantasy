@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchGameContext, fetchScoreboard } from '../board/load'
 import type { BoardGame, GameContext } from '../board/normalize'
+import { EmptyState, GlassCard, Skeleton } from '../components/glass'
 import { BackButton, TeamLink } from '../components/links'
 import { GameDetail } from './Board'
 
@@ -39,24 +40,22 @@ export function GamePage({ id }: { id: string }) {
   }, [game])
 
   if (game === null) {
-    return <section className="screen"><p className="loading">Loading the game</p></section>
+    return <section className="screen"><Skeleton variant="card" label="Loading the game" /></section>
   }
   if (game === 'missing') {
     return (
       <section className="screen">
-        <div className="panel destination">
+        <EmptyState title="That game is not on this week's board" body={note ?? 'The scoreboard pull has no event with that id.'}>
           <BackButton fallback="#games" label="Back to games" />
-          <h2>That game is not on this week's board</h2>
-          <p>{note ?? 'The scoreboard pull has no event with that id.'}</p>
           <p><a className="dest" href="#games">Open the week</a></p>
-        </div>
+        </EmptyState>
       </section>
     )
   }
 
   return (
     <section className="screen">
-      <article className="panel destination gcard open">
+      <GlassCard as="article" featured className="destination gcard open">
         <header className="profile-head">
           <div className="profile-id">
             <h2>{game.away.name} at {game.home.name}</h2>
@@ -70,7 +69,7 @@ export function GamePage({ id }: { id: string }) {
           <BackButton fallback="#games" label="Back to games" />
         </header>
         <GameDetail game={game} ctx={ctx} />
-      </article>
+      </GlassCard>
     </section>
   )
 }

@@ -3,6 +3,7 @@ import { useOptionalEngine } from '../dataContext'
 import { fetchAthlete } from '../espn/load'
 import type { AthleteCard, NewsItem } from '../espn/parse'
 import { PlayerProfile } from '../components/PlayerProfile'
+import { EmptyState, GlassCard, NewsCard, Skeleton } from '../components/glass'
 import { BackButton, TeamLink } from '../components/links'
 
 function EspnPlayer({ id }: { id: string }) {
@@ -29,15 +30,13 @@ function EspnPlayer({ id }: { id: string }) {
     return () => { stop = true }
   }, [id])
 
-  if (card === null) return <p className="loading">Loading the player</p>
+  if (card === null) return <Skeleton variant="card" label="Loading the player" />
   if (card === 'missing') {
     return (
-      <>
+      <EmptyState title="No player with that id" body={error ?? 'ESPN has no player with that id.'}>
         <BackButton fallback="#news" />
-        <h2>No player with that id</h2>
-        <p>{error}</p>
         <p className="news-next"><a className="dest" href="#news">News</a><a className="dest" href="#games">Games</a></p>
-      </>
+      </EmptyState>
     )
   }
 
@@ -72,9 +71,11 @@ function EspnPlayer({ id }: { id: string }) {
       )}
       <h3>News</h3>
       {headline ? (
-        <p>
-          {headline.url ? <a href={headline.url} target="_blank" rel="noreferrer">{headline.headline}</a> : headline.headline}
-        </p>
+        <NewsCard
+          kicker="Latest"
+          title={headline.url ? <a href={headline.url} target="_blank" rel="noreferrer">{headline.headline}</a> : headline.headline}
+          summary={headline.summary}
+        />
       ) : (
         <p>No headline on this pull.</p>
       )}
@@ -92,13 +93,13 @@ export function PlayerPage({ id }: { id: string }) {
   const fantasy = engine?.d.players.find((p) => p.id === id) ?? null
   return (
     <section className="screen">
-      <article className="panel destination">
+      <GlassCard as="article" className="destination">
         {fantasy && engine ? (
           <PlayerProfile p={fantasy} week={engine.d.meta.week} page />
         ) : (
           <EspnPlayer id={id} />
         )}
-      </article>
+      </GlassCard>
     </section>
   )
 }

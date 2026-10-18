@@ -4,6 +4,7 @@ import { fetchClub, fetchClubStats, fetchLastGame, fetchRoster } from '../espn/l
 import { statLineEmpty, type ClubGame, type ClubProfile, type ClubStats, type RosterPlayer } from '../espn/parse'
 import type { Player } from '../types'
 import { InjuryTag, fmt, signed } from '../components/bits'
+import { EmptyState, GlassCard, Skeleton } from '../components/glass'
 import { BackButton, PlayerLink, TeamLink } from '../components/links'
 
 function shown(n: number | null, digits = 1): string | null {
@@ -111,17 +112,15 @@ export function TeamPage({ abbr }: { abbr: string }) {
     .slice(0, 8)
 
   if (club === null) {
-    return <section className="screen"><p className="loading">Loading {abbr}</p></section>
+    return <section className="screen"><Skeleton variant="card" label={`Loading ${abbr}`} /></section>
   }
   if (club === 'missing') {
     return (
       <section className="screen">
-        <div className="panel destination">
+        <EmptyState title={`No club named ${abbr}`} body={error ?? 'ESPN has no NFL team with that abbreviation.'}>
           <BackButton fallback="#games" />
-          <h2>No club named {abbr}</h2>
-          <p>{error ?? 'ESPN has no NFL team with that abbreviation.'}</p>
           <p className="news-next"><a className="dest" href="#games">Open the week</a><a className="dest" href="#news">News</a></p>
-        </div>
+        </EmptyState>
       </section>
     )
   }
@@ -137,7 +136,12 @@ export function TeamPage({ abbr }: { abbr: string }) {
 
   return (
     <section className="screen">
-      <article className="panel destination club-head" style={club.color ? { borderTop: `4px solid ${club.color}` } : undefined}>
+      <GlassCard
+        as="article"
+        featured
+        className="destination club-head"
+        style={club.color ? { boxShadow: `inset 0 3px 0 ${club.color}, var(--shadow-card)` } : undefined}
+      >
         <header className="profile-head">
           {club.logo && <img className="club-logo" src={club.logo} alt="" width={64} height={64} />}
           <div className="profile-id">
@@ -166,14 +170,14 @@ export function TeamPage({ abbr }: { abbr: string }) {
         {offense?.passYardsPerGame != null && offense.rushYardsPerGame != null && (
           <p className="muted small">{shown(offense.passYardsPerGame, 0)} pass yards and {shown(offense.rushYardsPerGame, 0)} rush yards per game.</p>
         )}
-      </article>
+      </GlassCard>
 
       <div className="club-games">
         {club.next ? <GameRow game={club.next} abbr={club.abbr} label="Next game" /> : <article className="club-game"><p>No next game on this pull.</p><p><a className="dest" href="#games">Open the week</a></p></article>}
         {last ? <GameRow game={last} abbr={club.abbr} label="Last game" /> : <article className="club-game"><p>No completed game on this schedule pull.</p></article>}
       </div>
 
-      <article className="panel">
+      <GlassCard as="article">
         <h2>Skill players</h2>
         {fantasySkill.length > 0 ? (
           <>
@@ -200,7 +204,7 @@ export function TeamPage({ abbr }: { abbr: string }) {
           </>
         )}
         <p className="news-next"><a className="dest" href="#news">News</a><a className="dest" href="#games">Games</a></p>
-      </article>
+      </GlassCard>
     </section>
   )
 }
