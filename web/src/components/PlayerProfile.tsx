@@ -1,7 +1,7 @@
 import type { Player, FantasyData, Pos } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { playoffSos, sosLabel } from '../engine/advice'
-import { Avatar, InjuryTag, RankDelta, fmt, pct } from './bits'
+import { Avatar, InjuryTag, RankDelta, fmt, pct, signed } from './bits'
 import { WeeklyChart } from './WeeklyChart'
 import { weekRange } from './RangeChart'
 
@@ -33,7 +33,8 @@ function Tile({ label, value, sub, tone }: { label: string; value: string; sub?:
 
 /** Everything about one player on one page: scoring, this week's matchup, ownership, health and how the projection was built. */
 export function PlayerProfile({ p, week, onBack }: { p: Player; week: number; onBack: () => void }) {
-  const { d, lab } = useEngineCtx()
+  const { d, lab, tradeOf } = useEngineCtx()
+  const tv = tradeOf(p)
   const wk = String(week)
   const r = weekRange(p, week)
   const opp = d.nflOpp[p.nfl]?.[wk]
@@ -149,8 +150,9 @@ export function PlayerProfile({ p, week, onBack }: { p: Player; week: number; on
         <section>
           <h4>How the projection is built</h4>
           <dl className="facts wide">
-            <dt>Pace when active</dt><dd>{fmt(p.rate)} pts/g: blend of season {fmt(parts.season)} and ESPN's {fmt(parts.espn)}, trend x{parts.trend.toFixed(2)}{parts.jev !== 1 ? `, news x${parts.jev.toFixed(2)}` : ''}</dd>
-            <dt>This week</dt><dd>{fmt(p.proj[wk] ?? 0)} expected{p.projIf && p.projIf[wk] !== p.proj[wk] ? `, ${fmt(p.projIf[wk] ?? 0)} if he plays` : ''}</dd>
+            <dt>Pace when active</dt><dd>{fmt(p.rate)} pts/g rest of season: {fmt(parts.season)} scored, blended with ESPN's {fmt(parts.espn)} per game{parts.k != null ? ` (${parts.k} games of ESPN prior for a ${p.pos})` : ''}, trend ×{parts.trend.toFixed(2)}{parts.jev !== 1 ? `, news ×${parts.jev.toFixed(2)}` : ''}. This week's matchup is not carried into later weeks.</dd>
+            <dt>This week</dt><dd>{fmt(p.proj[wk] ?? 0)} expected{p.projIf && p.projIf[wk] !== p.proj[wk] ? `, ${fmt(p.projIf[wk] ?? 0)} if he plays` : ''}{parts.week != null ? `. This week's ESPN blend is ${fmt(parts.week)}` : ''}{p.espnWeek != null && p.espnWeek > 0.3 ? '. ESPN already priced the opponent, so the defense factor is not applied again.' : ''}</dd>
+            <dt>Trade value</dt><dd>{signed(tv.surplus)} pts/wk above a replacement {p.pos} ({fmt(tv.replacement)}). His own pace is {fmt(tv.production)}, from next week through week {d.meta.lastWeek}, playoff weeks ×1.5. {fmt(lab.v(p))} is that pace before subtracting replacement.</dd>
             <dt>vs ESPN</dt><dd>{p.espnWeek !== null ? <>ESPN has {fmt(p.espnWeek)}{edge !== null ? `, we are ${edge >= 0 ? '+' : ''}${fmt(edge)}` : ''}</> : 'No ESPN weekly number'}</dd>
             <dt>Playoffs</dt><dd>{playoffPts > 0 ? `${fmt(playoffPts)} projected points across Weeks ${d.meta.regularWeeks + 1} to ${d.meta.lastWeek}` : 'No playoff weeks left to project'}</dd>
           </dl>

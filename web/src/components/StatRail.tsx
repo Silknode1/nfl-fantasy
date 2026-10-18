@@ -2,7 +2,7 @@ import type { Player } from '../types'
 import { useFocus } from '../focus'
 import { useEngineCtx } from '../dataContext'
 import { playoffSos, sosLabel } from '../engine/advice'
-import { Avatar, InjuryTag, RankDelta, fmt } from './bits'
+import { Avatar, InjuryTag, RankDelta, fmt, signed } from './bits'
 import { WeeklyChart } from './WeeklyChart'
 
 function usageLine(p: Player): string {
@@ -24,7 +24,7 @@ function trendWord(p: Player): { text: string; cls: string } | null {
 
 export function StatRail() {
   const { list, hover, setHover, pinned, setPinned } = useFocus()
-  const { d, lab } = useEngineCtx()
+  const { d, lab, tradeOf } = useEngineCtx()
   const week = d.meta.week
   return (
     <aside className="rail" aria-label="Player stats">
@@ -44,7 +44,8 @@ export function StatRail() {
           <WeeklyChart p={pinned} />
           <dl className="facts">
             <dt>Scored</dt><dd>{fmt(pinned.ppg)} pts/g over {pinned.gp} games (fPPG); last 3 games {pinned.last3 != null ? fmt(pinned.last3) : '–'}</dd>
-            <dt>App projection</dt><dd>{fmt(pinned.proj[String(week)] ?? 0)} this week{pinned.playP != null && pinned.playP < 0.9 && pinned.playP > 0 ? ` (${Math.round(pinned.playP * 100)}% to play)` : ''}. {fmt(pinned.rate)} pts/g when active; {fmt(lab.v(pinned))} per week counting byes and injuries</dd>
+            <dt>App projection</dt><dd>{fmt(pinned.proj[String(week)] ?? 0)} this week{pinned.playP != null && pinned.playP < 0.9 && pinned.playP > 0 ? ` (${Math.round(pinned.playP * 100)}% to play)` : ''}. {fmt(pinned.rate)} pts/g rest of season; {fmt(lab.v(pinned))} per week counting byes and injuries</dd>
+            <dt>Trade value</dt><dd>{signed(tradeOf(pinned).surplus)} pts/wk above a replacement {pinned.pos} ({fmt(tradeOf(pinned).replacement)}). His own pace is {fmt(tradeOf(pinned).production)}.</dd>
             <dt>ESPN</dt><dd>{pinned.espnWeek !== null ? `${fmt(pinned.espnWeek)} this week, ` : ''}{fmt(pinned.espnSeason, 0)} season projection</dd>
             <dt>Usage</dt><dd>{usageLine(pinned)}</dd>
             <dt>Playoff draw</dt><dd>{sosLabel(playoffSos(d, pinned))} vs average defense, Weeks 15–17</dd>
@@ -81,6 +82,7 @@ export function StatRail() {
                 <div className="rail-nums">
                   <span><b>{fmt(p.ppg)}</b> pts/g</span>
                   <span><b>{fmt(lab.v(p))}</b> ROS/wk</span>
+                  <span><b>{signed(tradeOf(p).surplus)}</b> trade</span>
                   <span><b>{fmt(wk)}</b> wk {week}{p.locked ? ' final' : ''}</span>
                 </div>
                 <div className="rail-sub">
