@@ -72,7 +72,9 @@ export function StatRail() {
         </section>
       )}
       {!pinned && list.length === 0 && (
-        <EmptyState title="No one pinned yet" body="Click a player photo and his week, usage, and news land here." />
+        <EmptyState title="No one pinned yet" body="Open a player from the desk, or tap a numbered row once a screen lists one. His week, usage, and news land here.">
+          <p className="news-next"><a className="dest" href="#team">My team</a><a className="dest" href="#waivers">Waivers</a></p>
+        </EmptyState>
       )}
       <ol className="rail-list">
         {list.map((p, i) => {
@@ -82,9 +84,17 @@ export function StatRail() {
             <li
               key={p.id}
               className={hover === p.id ? 'lit' : ''}
+              tabIndex={0}
               onMouseEnter={() => setHover(p.id)}
               onMouseLeave={() => setHover(null)}
               onClick={() => setPinned(p)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setPinned(p)
+                }
+              }}
             >
               <span className="badge static">{i + 1}</span>
               <div className="rail-body">

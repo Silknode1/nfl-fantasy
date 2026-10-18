@@ -26,7 +26,11 @@ function Lane({ title, hint, items, higher }: { title: string; hint: string; ite
     <GlassCard className="lane">
       <h2>{title}</h2>
       <p className="muted small">{hint}</p>
-      {items.length === 0 && <EmptyState title="No gap of 4+ spots" body="Our rank and ESPN's rank sit close together here. Try another position or a wider pool." />}
+      {items.length === 0 && (
+        <EmptyState title="No gap of 4+ spots" body="Our rank and ESPN's rank sit close together here. Try another position or a wider pool.">
+          <p className="news-next"><a className="dest" href="#waivers">Waivers</a><a className="dest" href="#trades">Trades</a></p>
+        </EmptyState>
+      )}
       {items.map((p) => {
         const diff = (p.espnRank ?? 0) - p.ourRank
         const team = d.teams.find((t) => t.id === p.teamId)

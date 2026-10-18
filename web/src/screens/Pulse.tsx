@@ -71,7 +71,9 @@ export function Pulse() {
   if (!t) {
     return (
       <div className="screen">
-        <EmptyState title="No waiver pulse yet" body="Trend data has not landed. Run ./fantasy.sh to pull Sleeper and ESPN adds and drops." />
+        <EmptyState title="No waiver pulse yet" body="Trend data has not landed. Run ./fantasy.sh to pull Sleeper and ESPN adds and drops.">
+          <p className="news-next"><a className="dest" href="#waivers">Waivers</a><a className="dest" href="#team">My team</a></p>
+        </EmptyState>
       </div>
     )
   }
