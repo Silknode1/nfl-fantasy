@@ -6,6 +6,12 @@ import { Avatar, InjuryTag, Meter, RankDelta, fmt, signed } from '../components/
 import { EmptyState, GlassCard, StatGroup } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 
+const suffix = new Set(['Jr', 'Jr.', 'Sr', 'Sr.', 'II', 'III', 'IV', 'V'])
+const shortName = (name: string) => {
+  const parts = name.split(' ').filter((part) => !suffix.has(part))
+  return parts[parts.length - 1] || name
+}
+
 export function Waivers() {
   const { d, waivers, ranks } = useEngineCtx()
   const [pos, setPos] = useState<Pos | 'ALL'>('ALL')
@@ -64,7 +70,13 @@ export function Waivers() {
                 items={[
                   { key: 'gain', label: 'Your pts/wk', value: signed(w.gain), className: 'hero', tone: w.gain > 0 ? 'up' : w.gain < 0 ? 'down' : 'neutral' },
                   { key: 'ros', label: 'ROS/wk', value: fmt(w.value) },
-                  { key: 'bid', label: 'Bid', value: `$${w.bid}`, tone: 'accent' },
+                  {
+                    key: 'bid',
+                    label: w.drop ? `Drop ${shortName(w.drop.name)}` : 'Bid',
+                    value: `$${w.bid}`,
+                    tone: 'accent',
+                    title: w.drop ? `Drop ${w.drop.name} to make the claim` : 'Suggested bid',
+                  },
                 ]}
               />
               <div className="wmeters">
@@ -72,11 +84,6 @@ export function Waivers() {
                 <Meter value={w.hype} label="Hype" />
                 <Meter value={w.trend} label="Role" />
               </div>
-              {w.drop && (
-                <p className="muted small drop-line">
-                  Drop <PlayerLink id={w.drop.id} name={w.drop.name} /> to make the claim.
-                </p>
-              )}
             </article>
           ))}
         </div>
