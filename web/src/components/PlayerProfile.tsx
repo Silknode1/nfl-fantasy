@@ -2,6 +2,7 @@ import type { Player, FantasyData, Pos } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { playoffSos, sosLabel } from '../engine/advice'
 import { Avatar, InjuryTag, RankDelta, fmt, pct, signed } from './bits'
+import { BackButton, TeamLink } from './links'
 import { WeeklyChart } from './WeeklyChart'
 import { weekRange } from './RangeChart'
 
@@ -32,7 +33,7 @@ function Tile({ label, value, sub, tone }: { label: string; value: string; sub?:
 }
 
 /** Everything about one player on one page: scoring, this week's matchup, ownership, health and how the projection was built. */
-export function PlayerProfile({ p, week, onBack }: { p: Player; week: number; onBack: () => void }) {
+export function PlayerProfile({ p, week, onBack, page = false }: { p: Player; week: number; onBack?: () => void; page?: boolean }) {
   const { d, lab, tradeOf } = useEngineCtx()
   const tv = tradeOf(p)
   const wk = String(week)
@@ -72,11 +73,12 @@ export function PlayerProfile({ p, week, onBack }: { p: Player; week: number; on
         <div className="profile-id">
           <h3>{p.name}</h3>
           <p className="pmeta">
-            <span>{p.pos}</span><span>{p.nfl}</span><span>Bye {p.bye ?? '–'}</span><InjuryTag p={p} />
+            <span>{p.pos}</span><TeamLink abbr={p.nfl} /><span>Bye {p.bye ?? '–'}</span><InjuryTag p={p} />
           </p>
           <RankDelta p={p} />
+          {!page && <a className="dest" href={`#player/${encodeURIComponent(p.id)}`}>Open page</a>}
         </div>
-        <button className="ghost" onClick={onBack}>Back to chart</button>
+        {page ? <BackButton fallback="#team" /> : <button className="ghost" type="button" onClick={() => onBack?.()}>Back to chart</button>}
       </header>
 
       <div className="ptiles">
@@ -93,7 +95,7 @@ export function PlayerProfile({ p, week, onBack }: { p: Player; week: number; on
           <h4>This week's matchup</h4>
           {opp && dr ? (
             <dl className="facts wide">
-              <dt>Opponent</dt><dd><b>{opp}</b>, {matchupWord(dr.factor)} defense against {p.pos}s</dd>
+              <dt>Opponent</dt><dd><TeamLink abbr={opp} />, {matchupWord(dr.factor)} defense against {p.pos}s</dd>
               <dt>Points allowed</dt><dd>{dr.factor >= 1 ? '+' : ''}{((dr.factor - 1) * 100).toFixed(0)}% vs league average, {dr.rank} of {dr.of} softest</dd>
               <dt>Playoff draw</dt><dd>{sosLabel(playoffSos(d, p))} vs average defense, Weeks {d.meta.regularWeeks + 1} to {d.meta.lastWeek}</dd>
             </dl>
@@ -104,14 +106,15 @@ export function PlayerProfile({ p, week, onBack }: { p: Player; week: number; on
             {upcoming.slice(0, 8).map((w) => {
               const o = d.nflOpp[p.nfl]?.[String(w)]
               const f = o ? d.defense[o]?.[p.pos] ?? 1 : null
-              const cls = f === null ? '' : f >= 1.08 ? 'soft' : f <= 0.92 ? 'tough' : ''
-              return (
-                <div key={w} className={`sched-c ${cls} ${w === week ? 'now' : ''}`}>
+              const cls = `sched-c ${f === null ? '' : f >= 1.08 ? 'soft' : f <= 0.92 ? 'tough' : ''} ${w === week ? 'now' : ''}`
+              const body = (
+                <>
                   <span>Wk {w}</span>
                   <b>{o ?? 'Bye'}</b>
                   <span>{fmt(p.proj[String(w)] ?? 0)}</span>
-                </div>
+                </>
               )
+              return o ? <a key={w} className={cls} href={`#team/${o}`}>{body}</a> : <div key={w} className={cls}>{body}</div>
             })}
           </div>
           <p className="muted small">Green is a soft matchup, red a tough one. The number under each opponent is his expected points.</p>
@@ -137,9 +140,12 @@ export function PlayerProfile({ p, week, onBack }: { p: Player; week: number; on
               <>
                 <dt>News</dt>
                 <dd>
-                  {p.jev.url ? <a href={p.jev.url} target="_blank" rel="noreferrer">{p.jev.headline}</a> : p.jev.headline}
+                  {p.jev.url
+                    ? <a href={p.jev.url} target="_blank" rel="noreferrer">{p.jev.headline}</a>
+                    : <a href="#news">{p.jev.headline}</a>}
                   {p.jev.role !== 'none' && <> Role {p.jev.role}.</>}
                   {p.jev.timeline && p.jev.timeline !== 'not_stated' && <> Timeline: {p.jev.timeline.replaceAll('_', ' ')}.</>}
+                  {' '}<a className="dest" href="#news">News desk</a>
                 </dd>
               </>
             )}

@@ -35,6 +35,7 @@ export function Plan() {
         <p>
           You're {d.teams.find((t) => t.id === me)!.wins}-{d.teams.find((t) => t.id === me)!.losses} with {pct(sim.playoff[me])} playoff odds and {pct(sim.title[me])} title odds. The job now is less about making the playoffs and more about the strongest possible lineup for Weeks 15–17.
         </p>
+        <p className="news-next"><a className="dest" href="#team">My team</a><a className="dest" href="#trades">Trades</a><a className="dest" href="#news">News</a></p>
       </section>
       <div className="plan-cols">
         <Column title="This week" when={`Week ${d.meta.week}, before kickoff and the next waiver run`} items={plan.short} />

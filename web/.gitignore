@@ -2,7 +2,9 @@ node_modules/
 dist/
 dist-artifact/
 # League data stays out of git: it holds every manager's roster. Rebuild with `python -m fantasy.build`.
+# scoreboard.json is the public ESPN fallback for the games board, so it stays tracked.
 public/data/*.json
+!public/data/scoreboard.json
 src/inline-data.json
 shot-*.png
 
