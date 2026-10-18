@@ -104,15 +104,29 @@ function bundleOf(raw: unknown, game: BoardGame): Bundle {
   }
 }
 
-function withQuote(game: BoardGame, quotes: Record<string, GameQuote>): BoardGame {
-  if (game.quote || !quotes[game.id]) return game
-  const quote = quotes[game.id]
-  const implied = quote.total != null && quote.homeSpread != null ? impliedTeamTotals(quote.total, quote.homeSpread) : null
-  return { ...game, quote, implied }
+function when(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'Time not listed'
+  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-function messageOf(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
+function quarter(n: number | null): string {
+  if (n == null) return ''
+  if (n >= 1 && n <= 4) return `Q${n}`
+  if (n === 5) return 'OT'
+  return `OT${n - 4}`
+}
+
+function spreadText(game: BoardGame): string {
+  const q = game.quote
+  if (!q || q.homeSpread == null) return 'Spread not listed'
+  if (q.homeSpread < 0) return `${game.home.abbr} ${formatLine(q.home.line)}`
+  if (q.homeSpread > 0) return `${game.away.abbr} ${formatLine(q.away.line)}`
+  return 'Even spread'
+}
+
+function totalText(game: BoardGame): string {
+  return game.quote?.total == null ? 'Total not listed' : `Total ${game.quote.total}`
 }
 
 function fmt(n: number | null): string {

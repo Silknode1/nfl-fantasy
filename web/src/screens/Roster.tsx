@@ -6,6 +6,7 @@ import { RangeChart } from '../components/RangeChart'
 import { PlayerProfile } from '../components/PlayerProfile'
 import { weekAdvice } from '../engine/advice'
 import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, signed } from '../components/bits'
+import { PlayerLink, TeamLink } from '../components/links'
 import { hot } from '../components/bits'
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX']
@@ -21,10 +22,10 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
       <span className="slot">{slot}</span>
       <Avatar p={p} />
       <div className="prow-id">
-        <div className="pname">{p.name}</div>
+        <div className="pname"><PlayerLink id={p.id} name={p.name} /></div>
         <div className="pmeta">
           <span>{p.pos}</span>
-          <span>{p.nfl}</span>
+          <TeamLink abbr={p.nfl} />
           {p.bye && <span>Bye {p.bye}</span>}
           <InjuryTag p={p} />
           <PlayChance p={p} />
@@ -84,8 +85,8 @@ export function Roster() {
             <ul className="swaps">
               {wa.swaps.map((s) => (
                 <li key={s.out.id}>
-                  <span className="swap-in">Start {s.in.name}</span>
-                  <span className="muted">bench {s.out.name}</span>
+                  <span className="swap-in">Start <PlayerLink id={s.in.id} name={s.in.name} /></span>
+                  <span className="muted">bench <PlayerLink id={s.out.id} name={s.out.name} /></span>
                   <span className="gain">{signed(s.gain)} pts</span>
                 </li>
               ))}

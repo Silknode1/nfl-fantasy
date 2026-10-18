@@ -3,6 +3,7 @@ import { useFocus } from '../focus'
 import { useEngineCtx } from '../dataContext'
 import { playoffSos, sosLabel } from '../engine/advice'
 import { Avatar, InjuryTag, RankDelta, fmt, signed } from './bits'
+import { PlayerLink, TeamLink } from './links'
 import { WeeklyChart } from './WeeklyChart'
 
 function usageLine(p: Player): string {
@@ -33,9 +34,9 @@ export function StatRail() {
           <header className="pin-head">
             <Avatar p={pinned} size={64} numbered={false} />
             <div>
-              <h3>{pinned.name}</h3>
+              <h3><PlayerLink id={pinned.id} name={pinned.name} /></h3>
               <p className="pmeta">
-                <span>{pinned.pos}</span><span>{pinned.nfl}</span><span>Bye {pinned.bye ?? '–'}</span><InjuryTag p={pinned} />
+                <span>{pinned.pos}</span><TeamLink abbr={pinned.nfl} /><span>Bye {pinned.bye ?? '–'}</span><InjuryTag p={pinned} />
               </p>
               <RankDelta p={pinned} />
             </div>
@@ -54,7 +55,7 @@ export function StatRail() {
           </dl>
           {pinned.jev?.headline && (
             <p className="jev">
-              <span className="jev-mark" aria-hidden>▲</span> Jev read this news: “{pinned.jev.headline}”
+              <span className="jev-mark" aria-hidden>▲</span> Jev read this news: “{pinned.jev.url ? <a href={pinned.jev.url} target="_blank" rel="noreferrer">{pinned.jev.headline}</a> : <a href="#news">{pinned.jev.headline}</a>}”
               {pinned.jev.role !== 'none' && <> Role {pinned.jev.role}.</>}
               {pinned.jev.timeline && pinned.jev.timeline !== 'not_stated' && <> Timeline: {pinned.jev.timeline.replaceAll('_', ' ')}.</>}
             </p>
@@ -77,7 +78,7 @@ export function StatRail() {
               <span className="badge static">{i + 1}</span>
               <div className="rail-body">
                 <div className="rail-name">
-                  {p.name} <InjuryTag p={p} />
+                  <PlayerLink id={p.id} name={p.name} /> <InjuryTag p={p} />
                 </div>
                 <div className="rail-nums">
                   <span><b>{fmt(p.ppg)}</b> pts/g</span>

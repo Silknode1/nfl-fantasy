@@ -3,6 +3,7 @@ import type { Pos } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useNumbered } from '../focus'
 import { Avatar, InjuryTag, Meter, RankDelta, fmt, signed } from '../components/bits'
+import { PlayerLink, TeamLink } from '../components/links'
 
 export function Waivers() {
   const { d, waivers, ranks } = useEngineCtx()
@@ -33,11 +34,11 @@ export function Waivers() {
               <Avatar p={w.player} />
               <div className="wid">
                 <div className="pname">
-                  {w.player.name} <InjuryTag p={w.player} />
+                  <PlayerLink id={w.player.id} name={w.player.name} /> <InjuryTag p={w.player} />
                   {w.player.status === 'WAIVERS' && <span className="tag">On waivers</span>}
                 </div>
                 <div className="pmeta">
-                  <span>{w.player.pos}</span><span>{w.player.nfl}</span><span>{w.player.own}% rostered</span><RankDelta p={w.player} />
+                  <span>{w.player.pos}</span><TeamLink abbr={w.player.nfl} /><span>{w.player.own}% rostered</span><RankDelta p={w.player} />
                 </div>
                 <p className="why">{w.why.length ? w.why.join('; ') : 'Depth with little upside right now'}</p>
               </div>
@@ -49,7 +50,7 @@ export function Waivers() {
               <div className="wnums">
                 <div className="num"><b>{signed(w.gain)}</b><small>your pts/wk</small></div>
                 <div className="num"><b>{fmt(w.value)}</b><small>ROS/wk</small></div>
-                <div className="num bid"><b>${w.bid}</b><small>{w.drop ? `drop ${w.drop.name.split(' ').slice(-1)[0]}` : 'bid'}</small></div>
+                <div className="num bid"><b>${w.bid}</b><small>{w.drop ? <>drop <PlayerLink id={w.drop.id} name={w.drop.name.split(' ').slice(-1)[0]!} /></> : 'bid'}</small></div>
               </div>
             </article>
           ))}

@@ -3,6 +3,7 @@ import type { Player, Pos } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useNumbered } from '../focus'
 import { Avatar, InjuryTag, fmt } from '../components/bits'
+import { PlayerLink, TeamLink } from '../components/links'
 
 function why(p: Player, higher: boolean): string {
   const bits: string[] = []
@@ -32,8 +33,8 @@ function Lane({ title, hint, items, higher }: { title: string; hint: string; ite
           <div className="erow" key={p.id}>
             <Avatar p={p} size={48} />
             <div className="eid">
-              <div className="pname">{p.name} <InjuryTag p={p} /></div>
-              <div className="pmeta"><span>{p.nfl}</span><span>{team ? (team.id === d.meta.myTeamId ? 'Your team' : team.name) : 'Free agent'}</span></div>
+              <div className="pname"><PlayerLink id={p.id} name={p.name} /> <InjuryTag p={p} /></div>
+              <div className="pmeta"><TeamLink abbr={p.nfl} /><span>{team ? (team.id === d.meta.myTeamId ? 'Your team' : team.name) : 'Free agent'}</span></div>
               <p className="why">{why(p, higher)}</p>
             </div>
             <div className="ebar" aria-label={`Ours ${p.pos}${p.ourRank}, ESPN ${p.pos}${p.espnRank}`}>
