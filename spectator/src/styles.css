@@ -1,0 +1,181 @@
+/* Fieldglass. Same liquid-glass language as the fantasy desk, with an ice accent. */
+:root {
+  color-scheme: dark;
+  --ink: #061018;
+  --panel: rgba(10, 28, 40, 0.55);
+  --line: rgba(186, 230, 255, 0.16);
+  --grid: rgba(186, 230, 255, 0.08);
+  --text: #e7f6fb;
+  --muted: #8eafc0;
+  --accent: #7adfff;
+  --accent-ink: #04222c;
+  --up: #5ee0b5;
+  --down: #ff8f7c;
+  --display: 'Outfit', system-ui, sans-serif;
+  --r: 22px;
+  --glass: blur(24px) saturate(170%);
+  --edge: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 18px 46px rgba(0, 0, 0, 0.32);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ink); color: var(--text); }
+body {
+  font: 15px/1.5 var(--display);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  background:
+    radial-gradient(1000px 560px at 0% -10%, rgba(90, 210, 255, 0.18), transparent 55%),
+    radial-gradient(800px 480px at 100% 0%, rgba(40, 90, 160, 0.2), transparent 50%),
+    var(--ink);
+}
+button, input { font: inherit; color: inherit; }
+a { color: var(--accent); }
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.03em; margin: 0; }
+h1 { font-size: clamp(36px, 5vw, 56px); line-height: 0.95; color: #f4fcff; }
+h2 { font-size: 28px; }
+h3 { font-size: 16px; }
+p { margin: 0.35em 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app {
+  position: relative;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-areas: 'mast mast' 'nav main' 'foot foot';
+  gap: 12px;
+  min-height: 100vh;
+  padding: 12px;
+}
+.atmosphere { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.orb { position: absolute; border-radius: 50%; filter: blur(28px); }
+.orb-a { width: 480px; height: 480px; top: -160px; left: -100px; background: rgba(90, 220, 255, 0.28); }
+.orb-b { width: 380px; height: 380px; right: -80px; top: 80px; background: rgba(70, 110, 220, 0.24); }
+.masthead, .nav, .main, .foot { position: relative; z-index: 1; }
+
+.masthead, .nav, .panel, .gcard, .foot {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  box-shadow: var(--edge);
+}
+.masthead { grid-area: mast; padding: 18px 22px; border-radius: 28px; }
+.sub { margin: 6px 0 0; color: var(--muted); }
+.nav {
+  grid-area: nav;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: start;
+  position: sticky;
+  top: 12px;
+  border-radius: 24px;
+}
+.nav a {
+  display: block;
+  margin: 0 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--muted);
+  font-weight: 600;
+}
+.nav a:hover { color: var(--text); background: rgba(255, 255, 255, 0.04); }
+.nav a.on {
+  color: #f3fdff;
+  background: rgba(122, 223, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 0 0 1px rgba(122, 223, 255, 0.5);
+}
+.main { grid-area: main; min-width: 0; padding: 4px 4px 24px; }
+.foot { grid-area: foot; padding: 12px 16px; color: var(--muted); font-size: 12px; border-radius: 18px; }
+.screen { display: flex; flex-direction: column; gap: 12px; }
+.screen-head p, .where, .market, .note, .byes { color: var(--muted); }
+.panel { padding: 16px 18px; }
+.panel h2 { margin-bottom: 8px; }
+.kicker { color: var(--accent); font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 8px; }
+
+.window h3 { color: var(--muted); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; margin: 4px 2px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.gcard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(120px, 0.8fr);
+  gap: 10px;
+  padding: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+.gcard:hover { border-color: rgba(122, 223, 255, 0.55); }
+.gteams { display: grid; gap: 8px; min-width: 0; }
+.gteam { display: grid; grid-template-columns: 4px 36px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.gswatch { width: 4px; height: 32px; border-radius: 99px; }
+.gteam img, .logo-fallback { width: 36px; height: 36px; object-fit: contain; }
+.logo-fallback {
+  display: grid; place-content: center; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06); color: var(--muted); font-weight: 700;
+}
+.gname { min-width: 0; display: flex; flex-direction: column; }
+.gname b { font-size: 18px; letter-spacing: -0.03em; }
+.gname small, .gmeta small, .byes { color: var(--muted); font-size: 12px; }
+.gscore { font-variant-numeric: tabular-nums; font-size: 22px; }
+.gmeta { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; text-align: right; gap: 2px; }
+.gmeta b { font-weight: 600; font-size: 14px; }
+.match .gteam { margin: 6px 0; }
+.market { color: var(--accent); }
+
+.back { color: var(--accent); text-decoration: none; font-weight: 600; }
+.back::before { content: '← '; }
+.drives, .plays, .headlines, .leaders, .fives { list-style: none; margin: 0; padding: 0; }
+.drives { display: grid; gap: 10px; max-height: 70vh; overflow: auto; padding-right: 4px; }
+.drive { border-top: 1px solid var(--grid); padding-top: 8px; }
+.drive header { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.drive header span { color: var(--accent); font-weight: 600; }
+.drive header small { color: var(--muted); }
+.plays { display: grid; gap: 4px; margin-top: 6px; }
+.plays li { display: grid; grid-template-columns: 72px 64px minmax(0, 1fr); gap: 8px; font-size: 13px; padding: 4px 0; }
+.plays li.scoring { background: rgba(122, 223, 255, 0.08); border-radius: 10px; padding: 6px; }
+.clock, .down { color: var(--muted); font-variant-numeric: tabular-nums; }
+.play-score { grid-column: 2 / -1; color: var(--accent); font-size: 12px; }
+
+.statgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.statblock { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--grid); border-radius: 16px; padding: 10px 12px; }
+.statblock dl { margin: 8px 0 0; display: grid; gap: 6px; }
+.statblock div { display: flex; justify-content: space-between; gap: 12px; }
+.statblock dt { color: var(--muted); }
+.statblock dd { margin: 0; font-variant-numeric: tabular-nums; }
+.fives { display: grid; gap: 6px; margin-top: 12px; }
+.fives li, .leaders li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--grid); }
+.leaders { margin-top: 8px; }
+.leaders small, .fives small, .hcard small { color: var(--muted); }
+.headlines { display: grid; gap: 10px; }
+.hcard {
+  padding: 12px 0;
+  border-top: 1px solid var(--grid);
+}
+.hcard h3 { font-size: 18px; margin: 2px 0; }
+.hcard p { color: var(--muted); margin: 0; }
+.hcard a { font-size: 13px; }
+
+.table-wrap { overflow-x: auto; }
+.figures { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.figures th, .figures td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+.figures thead th { color: var(--muted); font-weight: 500; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.figures tbody th { font-weight: 600; }
+.figures small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+.empty, .loading { color: var(--muted); }
+.loading::after { content: ''; display: inline-block; width: 1ch; animation: dots 1.2s steps(4) infinite; overflow: hidden; vertical-align: bottom; }
+@keyframes dots { from { width: 0; } to { width: 3ch; } }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'mast' 'nav' 'main' 'foot'; }
+  .nav { flex-direction: row; overflow-x: auto; position: sticky; top: 8px; z-index: 3; }
+  .nav a { white-space: nowrap; }
+  .gcard, .statgrid, .plays li { grid-template-columns: 1fr; }
+  .gmeta { align-items: flex-start; text-align: left; }
+  .play-score { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
