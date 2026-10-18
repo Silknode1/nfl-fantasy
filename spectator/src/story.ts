@@ -3,7 +3,7 @@
  * Missing blocks become empty lists. Nothing here is a wager.
  */
 
-import { num, scoreboardBody } from './board/normalize'
+import { formatLine, num, scoreboardBody, type BoardGame } from './board/normalize'
 
 export interface DrivePlay {
   id: string
@@ -56,6 +56,36 @@ export interface LeaderLine {
   name: string
   value: string
   team: string
+}
+
+export interface RankedFact {
+  kind: 'score' | 'kickoff' | 'spread' | 'total'
+  rank: 1 | 2 | 3
+  text: string
+}
+
+/** Score (or kickoff) first, the point spread second, the total third. */
+export function rankedFacts(game: BoardGame): RankedFact[] {
+  const primary: RankedFact = game.state === 'pre'
+    ? { kind: 'kickoff', rank: 1, text: game.detail.trim() || 'Kickoff time not listed' }
+    : {
+        kind: 'score',
+        rank: 1,
+        text: `${game.away.abbr} ${game.away.score ?? '—'} · ${game.home.abbr} ${game.home.score ?? '—'}`,
+      }
+  return [
+    primary,
+    { kind: 'spread', rank: 2, text: spreadFact(game) },
+    { kind: 'total', rank: 3, text: game.quote?.total == null ? 'Total not listed' : `Total ${game.quote.total}` },
+  ]
+}
+
+export function spreadFact(game: BoardGame): string {
+  const quote = game.quote
+  if (!quote || quote.homeSpread == null) return 'Spread not listed'
+  if (quote.homeSpread < 0) return `${game.home.abbr} ${formatLine(quote.home.line)}`
+  if (quote.homeSpread > 0) return `${game.away.abbr} ${formatLine(quote.away.line)}`
+  return 'Even spread'
 }
 
 const DOWN = ['', '1st', '2nd', '3rd', '4th']

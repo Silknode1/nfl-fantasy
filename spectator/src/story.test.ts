@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import { normalizeScoreboard } from './board/normalize'
-import { drivesFrom, headlinesFromScoreboard, headlinesFromSummary } from './story'
+import { gameFromSummary, normalizeScoreboard, quoteFromSummary } from './board/normalize'
+import { scoreboardPath } from './load'
+import { drivesFrom, headlinesFromScoreboard, headlinesFromSummary, rankedFacts } from './story'
 
 const slate = {
   season: { year: 2026 },
@@ -176,5 +177,112 @@ describe('headline', () => {
       gameId: '401872995',
       kind: 'game',
     })
+  })
+})
+
+describe('score, spread, then total', () => {
+  test('orders the kickoff or score ahead of the spread, and the spread ahead of the total', () => {
+    const board = normalizeScoreboard(slate, '2026-10-18T06:00:00Z')
+    const pre = board.games.find((g) => g.id === '401872996')!
+    const preFacts = rankedFacts(pre)
+    expect(preFacts.map((f) => f.kind)).toEqual(['kickoff', 'spread', 'total'])
+    expect(preFacts.map((f) => f.rank)).toEqual([1, 2, 3])
+    expect(preFacts[0].text).toBe('10/18 - 9:30 AM EDT')
+    expect(preFacts[1].text).toBe('JAX -2.5')
+    expect(preFacts[2].text).toBe('Total 41.5')
+
+    const post = board.games.find((g) => g.id === '401872995')!
+    const postFacts = rankedFacts(post)
+    expect(postFacts.map((f) => f.kind)).toEqual(['score', 'spread', 'total'])
+    expect(postFacts[0]).toMatchObject({ rank: 1, text: 'SEA 14 · DEN 17' })
+    expect(postFacts[1]).toMatchObject({ rank: 2, text: 'Spread not listed' })
+    expect(postFacts[2].rank).toBe(3)
+  })
+})
+
+describe('previous week', () => {
+  test('asks ESPN for that week of the regular season and reads a closing spread the scoreboard left off', () => {
+    expect(scoreboardPath(null, 2026)).toBe('/espn/apis/site/v2/sports/football/nfl/scoreboard')
+    const path = scoreboardPath(5, 2026)
+    expect(path.startsWith('/espn/apis/site/v2/sports/football/nfl/scoreboard?')).toBe(true)
+    expect(path).toContain('week=5')
+    expect(path).toContain('seasontype=2')
+    expect(path).toContain('dates=2026')
+
+    const quote = quoteFromSummary({
+      pickcenter: [
+        {
+          provider: { displayName: 'DraftKings' },
+          spread: 3,
+          overUnder: 42.5,
+          pointSpread: {
+            home: { close: { line: '+3', odds: '-108' }, open: { line: '-2.5', odds: '-115' } },
+            away: { close: { line: '-3', odds: '-112' }, open: { line: '+2.5', odds: '-105' } },
+          },
+          total: {
+            over: { close: { line: 'o42.5', odds: '-112' }, open: { line: 'o44.5', odds: '-110' } },
+            under: { close: { line: 'u42.5', odds: '-108' }, open: { line: 'u44.5', odds: '-110' } },
+          },
+          moneyline: {
+            home: { close: { odds: '+142' }, open: { odds: '-142' } },
+            away: { close: { odds: '-170' }, open: { odds: '+120' } },
+          },
+          homeTeamOdds: { favorite: false, favoriteAtOpen: true },
+          awayTeamOdds: { favorite: true, favoriteAtOpen: false },
+        },
+      ],
+    })
+    expect(quote?.homeSpread).toBe(3)
+    expect(quote?.total).toBe(42.5)
+    expect(quote?.openTotal).toBe(44.5)
+    expect(quote?.away.moneyline).toBe(-170)
+    expect(quote?.favoriteFlipped).toBe(true)
+
+    const game = gameFromSummary({
+      header: {
+        id: '401872989',
+        week: 5,
+        competitions: [
+          {
+            id: '401872989',
+            date: '2026-10-11T20:05Z',
+            status: { type: { state: 'post', shortDetail: 'Final' } },
+            competitors: [
+              {
+                homeAway: 'home',
+                winner: false,
+                score: '17',
+                team: { id: '24', abbreviation: 'LAC', displayName: 'Los Angeles Chargers' },
+              },
+              {
+                homeAway: 'away',
+                winner: true,
+                score: '23',
+                team: { id: '7', abbreviation: 'DEN', displayName: 'Denver Broncos' },
+              },
+            ],
+          },
+        ],
+      },
+      pickcenter: [
+        {
+          spread: 3,
+          overUnder: 42.5,
+          pointSpread: {
+            home: { close: { line: '+3' } },
+            away: { close: { line: '-3' } },
+          },
+          total: { over: { close: { line: 'o42.5' } } },
+        },
+      ],
+    })
+    expect(game?.away.score).toBe(23)
+    expect(game?.home.score).toBe(17)
+    expect(game?.state).toBe('post')
+    const facts = rankedFacts(game!)
+    expect(facts.map((f) => f.kind)).toEqual(['score', 'spread', 'total'])
+    expect(facts[0].text).toBe('DEN 23 · LAC 17')
+    expect(facts[1].text).toBe('DEN -3.0')
+    expect(facts[2].text).toBe('Total 42.5')
   })
 })
