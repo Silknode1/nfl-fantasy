@@ -22,8 +22,13 @@ export async function fetchScoreboard(): Promise<{ board: Board; source: 'live' 
   }
 }
 
-export async function fetchGameContext(game: BoardGame): Promise<GameContext> {
+export async function fetchGameSummary(game: BoardGame): Promise<{ context: GameContext; raw: unknown }> {
   const res = await fetch(`/espn/apis/site/v2/sports/football/nfl/summary?event=${encodeURIComponent(game.id)}`, { cache: 'no-store' })
   if (!res.ok) throw new Error(`Game detail ${res.status}`)
-  return normalizeSummary(await res.json(), game)
+  const raw: unknown = await res.json()
+  return { context: normalizeSummary(raw, game), raw }
+}
+
+export async function fetchGameContext(game: BoardGame): Promise<GameContext> {
+  return (await fetchGameSummary(game)).context
 }
