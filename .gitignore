@@ -3,6 +3,9 @@
 __pycache__/
 *.pyc
 data/
+# The games board keeps a public ESPN scoreboard as a fallback. League files in that folder stay ignored.
+!web/public/data/
+!web/public/data/scoreboard.json
 
 # Jev eval run dumps (raw answers; regenerate any time)
 jev_signals/evals/runs/

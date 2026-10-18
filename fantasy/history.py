@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from fantasy import engine as E
 from fantasy import espn_league as L
 from fantasy.env import CACHE, load_env
+from fantasy.project import PRIOR_GAMES, blend_rate, defense_factor_clip, week_prior
 
 HIST = CACHE / "espn" / "history"
 
@@ -138,20 +139,24 @@ def replay(week: int, season_mix: float, ctx: dict) -> dict:
         cur_rate = (E._stat(p, 1, 0, 0) or 0.0) / 17
         season_rate = season_mix * cur_rate + (1 - season_mix) * pit_rate
         on_field = espn_week is not None and espn_week > 0.3
-        espn_rate = 0.6 * espn_week + 0.4 * season_rate if on_field else season_rate
-        base = (gp * ppg + E.K_PRIOR * espn_rate) / (gp + E.K_PRIOR) if (gp or espn_rate) else 0.0
+        anchor = week_prior(espn_week, season_rate, on_field)
         gsis = ctx["espn_to_gsis"].get(eid)
         tm, jm = E.trend_mult(pos, use.get(gsis) if gsis else None), E.jev_mult(jev.get(eid))
-        rate = base * tm * jm
+        rate = blend_rate(pos, gp, ppg, anchor) * tm * jm
         bye = ctx["byes"].get(team)
+        raw_opp = dfac.get(ctx["opp"].get((team, week), ""), {}).get(pos, 1.0) if (team, week) in ctx["opp"] else 1.0
+        # ESPN's weekly projection already prices this opponent. Replay is always "this week".
+        opp_used = 1.0 if on_field else defense_factor_clip(raw_opp)
         if week == bye or (team, week) not in ctx["opp"] or not on_field:
             proj = 0.0  # bye, or ESPN projected him out (ESPN zeroes players ruled out)
+            opp_used = 1.0
         else:
-            proj = rate * dfac.get(ctx["opp"][(team, week)], {}).get(pos, 1.0)
+            proj = rate * opp_used
         sd = E.CV[pos] * rate if gp < 3 else 0.5 * E.CV[pos] * rate + 0.5 * statistics.pstdev(played)
         out[eid] = {"proj": round(proj, 2), "espn": espn_week, "rate": round(rate, 2), "sd": round(sd, 2), "name": p["fullName"],
                     "pos": pos, "team": team, "actual": hist["actual"].get(str(week)),
-                    "parts": {"espn_rate": round(espn_rate, 2), "ppg": round(ppg, 2), "gp": gp, "trend": round(tm, 3), "jev": jm, "season_mix": season_mix}}
+                    "parts": {"espn_rate": round(anchor, 2), "ppg": round(ppg, 2), "gp": gp, "trend": round(tm, 3), "jev": jm,
+                              "season_mix": season_mix, "opp": round(opp_used, 3), "k": PRIOR_GAMES.get(pos, E.K_PRIOR)}}
     return out
 
 

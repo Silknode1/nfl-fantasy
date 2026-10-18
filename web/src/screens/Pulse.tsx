@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Player, TrendRow } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useFocus } from '../focus'
+import { PlayerLink, TeamLink } from '../components/links'
 
 type Source = 'sleeper' | 'espn'
 const POSITIONS = ['All', 'QB', 'RB', 'WR', 'TE', 'K', 'DST'] as const
@@ -32,8 +33,8 @@ function Bars({ title, rows, kind, src, status, onPick }: {
               tabIndex={st.p ? 0 : undefined}>
               <span className={`dot ${st.cls}`} aria-hidden="true" />
               <span className="pl-name">
-                {r.name}
-                <small>{r.pos} {r.team}{r.inj ? ` · ${r.inj.toLowerCase().replace('_', ' ')}` : ''}{st.label ? ` · ${st.label}` : ''}</small>
+                {st.p ? <PlayerLink id={st.p.id} name={r.name} /> : r.name}
+                <small>{r.pos} {r.team ? <TeamLink abbr={r.team} /> : ''}{r.inj ? ` · ${r.inj.toLowerCase().replace('_', ' ')}` : ''}{st.label ? ` · ${st.label}` : ''}</small>
               </span>
               <span className="pl-bar"><i className={kind} style={{ width: `${Math.max(2, (100 * val(r)) / max)}%` }} /></span>
               <span className="pl-val">{v}</span>

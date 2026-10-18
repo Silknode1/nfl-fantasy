@@ -1,6 +1,6 @@
 # Decision model: how the Carney Carnival desk decides
 
-Last verified against the code: 2026-10-15. Code wins over this doc. If they disagree, fix the doc.
+Last verified against the code: 2026-10-18. Code wins over this doc. If they disagree, fix the doc.
 Tags: **[V]** verified in code or data · **[A]** assumption, never tested · **[P]** planned, not built
 
 ## League (ESPN 1065732, "The Creature Conglomerate") [V]
@@ -21,18 +21,21 @@ Tags: **[V]** verified in code or data · **[A]** assumption, never tested · **
 | Decide | `web/src/engine/*.ts` (browser) | Lineups, season simulation, trades, waivers, advice |
 | Schedule | `.github/workflows/refresh.yml` → `run_nightly.py` | 10:58 AM and 5:58 PM CT daily, plus Sunday 9:35 AM |
 
-## Projection (`engine.py`) [V]
-- Points per game when active = (gp × observed ppg + 6 × ESPN prior) / (gp + 6). The ESPN prior is 0.6 × ESPN's this-week projection + 0.4 × ESPN's season projection / 17. If the player isn't expected to play this week, the prior is the season rate alone.
+## Projection (`engine.py`, `fantasy/project.py`) [V]
+- Two priors. The rest-of-season prior is ESPN's season projection / 17. The this-week prior is 0.6 × ESPN's this-week projection + 0.4 × that season rate, and only when ESPN expects him to play (weekly projection > 0.3 and status is active, questionable, or day-to-day). Otherwise both priors are the season rate. This week's matchup does not leak into later weeks.
+- Points per game when active = (gp × observed ppg + K × prior) / (gp + K). K is 4 for RB, 6 for WR, 10 for QB and TE [A: direction from the weeks 2–5 scorecard, which found that blending observed scoring helped RB and hurt QB/TE; the lengths are not a fit].
 - × usage trend: last 2 games vs earlier, capped at ±6% [A: weights untested].
 - × Jev role multiplier: ±4%, applied only when the news judgment is firm (p ≥ 0.6) [A].
-- Week projection = rate × opponent factor × availability.
-  - Opponent factor: points the defense allows to the position, shrunk with weight g/(g+8), capped at 0.85–1.15 [A].
+- This week = this-week rate × availability. ESPN's weekly number already includes the opponent, so the defense factor is not applied again.
+- A later week = rest-of-season rate × opponent factor × availability. Bye, free agent, or no game = 0.
+  - Opponent factor: points the defense allows to the position, shrunk with weight g/(g+8), capped at 0.92–1.08 [A: the wider ±15% cap moved replay MAE by at most 0.01].
   - Availability (`availability()` returns chance he plays, points multiplier if he plays, note). Out = 0 for 1 week, IR = out 4 weeks, unless a Jev-read news timeline says otherwise [A]. **Questionable** (current week): plays 75% / 63% / 50% by practice report (full / limited / did not practice), scores ~88% of usual if he plays. **Doubtful**: 3% to play. [V, measured on 2025 + 2026 wk 3–5: 287 questionable, 20 doubtful, 311 out player-weeks; doubtful and out never played; questionable 63% played, 88% of usual when playing]. QBs listed questionable played only 25% (24 cases): not special-cased yet. `proj` = expected (chance × points); `projIf` = points if he plays; the Desk's Expected / If he plays toggle swaps one for the other.
 - Spread (sd) = CV[pos] × rate, blended 50/50 with the player's own spread once he has 3+ games. CV: QB 0.38, RB 0.50, WR 0.55, TE 0.60 [A].
 - Floor/ceiling shown in the app = projection − 1.57 × sd and + 2.09 × sd (10th/90th percentile), floor not below 0 [V, fitted on replay weeks 2–3, held-out weeks 4–5: 11.9% below floor, 14.8% above ceiling; the old ±1.2816 × sd missed 19.2% / 21.7%]. The sd itself is ~1.45× too small (actual error sd ÷ model sd = 1.38–1.53 at every position) and outcomes skew high, hence the asymmetric multipliers. Still ignores the chance a player doesn't play at all [A]. Pooled across positions; per-position fits are too noisy at this sample size.
 
 ## Decision engine (TypeScript) [V]
-- **Value unit.** Weighted starting points per week from next week through Week 17, playoff weeks × 1.5 (`playerValue`, `outlook`).
+- **Value unit.** Weighted starting points per week from next week through Week 17, playoff weeks × 1.5 (`playerValue`, `outlook`). This is production, not trade value.
+- **Trade value** (`web/src/engine/value.ts`). Surplus = that same weighted pts/week minus the replacement player at the position. Replacement is QB12, RB30, WR30, TE12 in this 12-team league (one QB and one TE per team; RB and WR go deeper because of two starters plus the flex). A shorter pool uses the last player. The same raw points are worth more where the replacement scores less. There is no extra position multiplier. Negative surplus means a replacement player is projected higher. Bye and injury weeks are already inside the weekly projection. Lineup gain is still what grades a specific trade; this number is the player-level comparison.
 - **Lineup.** Greedy best lineup, which is optimal for this slot structure. The lineup sd adds a fixed 10-point term in quadrature (`+ 100` inside the sqrt in `lineup.ts`) [A].
 - **Simulation** (`sim.ts`): 3,000 seasons with fixed random draws (seed 20261011).
   - Team week score = projected lineup points + sd × z + 5 × season-long strength error. Played weeks use actual points.
@@ -98,7 +101,7 @@ ID joins: ESPN id ↔ gsis ↔ sleeper id through the `players` table. Some Slee
 8. Combined-offer simulations don't refill open roster spots the way single-trade evaluation does.
 
 ## Planned [P]
-- Position-specific prior strength; bye-aware playoff weight; expected-points blend; opponent cap ±8%; consensus projection blend.
+- Consensus projection blend (position-specific prior strength and the ±8% opponent cap shipped 2026-10-18; playoff weeks already count 1.5× and byes already zero the week).
 - Acceptance recalibration from logged offers; per-manager activity priors.
 - Log the model's acceptance % and the user's gut estimate at the moment an offer is sent.
 - Hindsight-ceiling check before any waiver-model work: how many points would perfect picks have added?
@@ -111,3 +114,4 @@ ID joins: ESPN id ↔ gsis ↔ sleeper id through the `players` table. Some Slee
 - 2026-10-16: Projection scorecard (replay weeks 2–5): app ties ESPN (MAE 5.01 vs 5.00); usage trend, Jev and opponent factor each move MAE ≤0.01 (Jev untestable, 1 of 925 rows); blending observed scoring helps RB, hurts QB/TE. Floor/ceiling widened to 1.57/2.09 sd (see above). Weekly scorecard task runs Tuesdays 12:19 PM CT.
 - 2026-10-16: Injury availability recalibrated from data (questionable 63%/88%, doubtful 3%, was 70% and 25%); Desk gains Expected / If-he-plays toggle and fPPG, last-3, app-projection columns.
 - 2026-10-15: Skill evals found the B+ double count, the 31% intercept share, and that acceptance isn't persisted.
+- 2026-10-18: Weekly points split this week from the rest of the season (ESPN's week no longer leaks forward, and the opponent factor is not applied twice). Prior length is 4/6/10 games for RB/WR/QB+TE. Opponent clip tightened to ±8%. Player trade value is rest-of-season points per week above QB12/RB30/WR30/TE12. Not yet re-scored on the Tuesday scorecard.

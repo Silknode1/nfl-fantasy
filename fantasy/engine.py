@@ -3,11 +3,17 @@
 Output: web/public/data/fantasy.json, read by the web app's decision engine (web/src/engine).
 
 Projection model (half-PPR points per game when active), deliberately simple and inspectable:
-  espn_rate  = 0.6 * ESPN this-week projection + 0.4 * ESPN season projection / 17
-  rate       = (games * season_ppg + K * espn_rate) / (games + K)      K = 6 games of prior
-  rate      *= usage-trend multiplier (last 2 games vs earlier, capped at +/-6%)
-  rate      *= Jev role multiplier (role expands / shrinks in recent news, +/-4%)
-  week proj  = rate * opponent factor (points allowed to the position, shrunk) * availability
+  season prior = ESPN season projection / 17
+  this-week prior = 0.6 * ESPN this-week projection + 0.4 * season prior
+                    (only when ESPN expects him to play; else the season prior)
+  rate = (games * season_ppg + K * prior) / (games + K)
+         K is 4 for RB, 6 for WR, 10 for QB and TE
+  rate *= usage-trend multiplier (last 2 games vs earlier, capped at +/-6%)
+  rate *= Jev role multiplier (role expands / shrinks in recent news, +/-4%)
+  this week  = this-week rate * availability
+               ESPN's weekly number already includes the opponent, so it is not applied again
+  later week = season rate * opponent factor (shrunk, clipped to +/-8%) * availability
+  bye, free agent, or no game = 0
 Run: python -m fantasy.engine
 """
 from __future__ import annotations
@@ -20,10 +26,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fantasy.env import CACHE, ROOT
+from fantasy.project import PRIOR_GAMES, defense_factor_clip, schedule_projection
 
 SEASON = 2026
 REG_WEEKS = 14
 LAST_WEEK = 17
+# Kept so older callers still import a prior length. Live blends use PRIOR_GAMES.
 K_PRIOR = 6.0
 POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE"}
 SLOTS = {0: "QB", 2: "RB", 4: "WR", 6: "TE", 23: "FLEX", 20: "BE", 21: "IR"}
@@ -88,7 +96,7 @@ def defense_factors(weekly: list) -> dict:
             g = len(games[t])
             raw = v / avg if avg else 1.0
             f = 1 + (raw - 1) * g / (g + 8)
-            out.setdefault(t, {})[pos] = round(min(1.15, max(0.85, f)), 3)
+            out.setdefault(t, {})[pos] = round(defense_factor_clip(f), 3)
     return out
 
 
@@ -282,31 +290,29 @@ def build() -> dict:
         ppg = statistics.mean(played) if played else 0.0
         espn_week = _stat(p, 1, 1, current)
         espn_season = _stat(p, 1, 0, 0) or 0.0
-        season_rate = espn_season / 17
-        if espn_week and espn_week > 0.3 and status in (None, "ACTIVE", "QUESTIONABLE", "DAY_TO_DAY"):
-            espn_rate = 0.6 * espn_week + 0.4 * season_rate
-        else:
-            espn_rate = season_rate
-        base = (gp * ppg + K_PRIOR * espn_rate) / (gp + K_PRIOR) if (gp or espn_rate) else 0.0
         tm, jm = trend_mult(pos, u), jev_mult(j)
-        rate = base * tm * jm
+        espn_priced = bool(espn_week and espn_week > 0.3 and status in (None, "ACTIVE", "QUESTIONABLE", "DAY_TO_DAY"))
 
         bye = byes.get(team)
-        proj, proj_if, notes, play_p = {}, {}, None, None
+        notes = None
+        week_rows = []
         for wk in range(current, LAST_WEEK + 1):
+            row = {"week": wk, "bye": wk == bye, "has_game": False, "opp": 1.0, "play": 1.0, "if_plays": 1.0, "actual": None}
             if wk == current and wk in actual:
-                proj[wk] = proj_if[wk] = actual[wk]  # game already played this week
-                continue
-            if team == "FA" or wk == bye or (team, wk) not in opp:
-                proj[wk] = proj_if[wk] = 0.0
-                continue
-            av, cond, note = availability(status, pos, wk, current, j, practice.get((gsis, current)) if gsis else None)
-            notes = notes or note
-            if wk == current:
-                play_p = round(av, 2)
-            f = dfac.get(opp[(team, wk)], {}).get(pos, 1.0)
-            proj[wk] = round(rate * f * av * cond, 2)          # expected points: chance he plays x points if he plays
-            proj_if[wk] = round(rate * f * cond, 2) if av > 0 else 0.0   # points if he plays
+                row["actual"] = actual[wk]  # game already played this week
+                row["has_game"] = True
+            elif team != "FA" and wk != bye and (team, wk) in opp:
+                av, cond, note = availability(status, pos, wk, current, j, practice.get((gsis, current)) if gsis else None)
+                notes = notes or note
+                row.update(has_game=True, opp=dfac.get(opp[(team, wk)], {}).get(pos, 1.0), play=av, if_plays=cond)
+            week_rows.append(row)
+        sched = schedule_projection(
+            pos=pos, current=current, last_week=LAST_WEEK, gp=gp, ppg=ppg,
+            espn_week=espn_week, espn_season=espn_season, trend=tm, jev=jm,
+            espn_priced_week=espn_priced, weeks=week_rows,
+        )
+        proj, proj_if, play_p = sched["proj"], sched["proj_if"], sched["play_p"]
+        rate = sched["rate"]
 
         recent = [v for wk, v in sorted(actual.items()) if wk <= current][-3:]  # last 3 games with a stat line
         last3 = round(statistics.mean(recent), 1) if recent else None
@@ -326,8 +332,12 @@ def build() -> dict:
             "own": round(own.get("percentOwned") or 0, 1), "ownChg": round(own.get("percentChange") or 0, 2),
             "started": round(own.get("percentStarted") or 0, 1),
             "usage": u, "adds": adds.get(sid, 0), "drops": drops.get(sid, 0), "jev": j,
-            "rate": round(rate, 2),
-            "rateParts": {"espn": round(espn_rate, 2), "season": round(ppg, 2), "trend": round(tm, 3), "jev": jev_mult(j)},
+            "rate": rate,
+            "rateParts": {
+                "espn": round(sched["season_rate"], 2), "season": round(ppg, 2),
+                "trend": round(tm, 3), "jev": jev_mult(j),
+                "week": round(sched["week_anchor"], 2), "k": PRIOR_GAMES.get(pos, K_PRIOR),
+            },
             "proj": {str(k): v for k, v in proj.items()}, "projIf": {str(k): v for k, v in proj_if.items()},
             "playP": play_p, "last3": last3, "sd": round(sd, 2),
             "ros": round(sum(v for wk, v in proj.items() if current < wk <= REG_WEEKS), 1),

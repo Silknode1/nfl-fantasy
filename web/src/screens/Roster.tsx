@@ -6,12 +6,14 @@ import { RangeChart } from '../components/RangeChart'
 import { PlayerProfile } from '../components/PlayerProfile'
 import { weekAdvice } from '../engine/advice'
 import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, signed } from '../components/bits'
+import { PlayerLink, TeamLink } from '../components/links'
 import { hot } from '../components/bits'
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX']
 
 function PlayerRow({ p, slot }: { p: Player; slot: string }) {
-  const { d, lab } = useEngineCtx()
+  const { d, lab, tradeOf } = useEngineCtx()
+  const tv = tradeOf(p)
   const wk = p.proj[String(d.meta.week)] ?? 0
   const onBye = p.bye === d.meta.week
   const out = !p.locked && wk === 0 && !!p.inj && p.inj !== 'ACTIVE'
@@ -20,14 +22,14 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
       <span className="slot">{slot}</span>
       <Avatar p={p} />
       <div className="prow-id">
-        <div className="pname">{p.name}</div>
+        <div className="pname"><PlayerLink id={p.id} name={p.name} /></div>
         <div className="pmeta">
           <span>{p.pos}</span>
-          <span>{p.nfl}</span>
+          <TeamLink abbr={p.nfl} />
           {p.bye && <span>Bye {p.bye}</span>}
           <InjuryTag p={p} />
           <PlayChance p={p} />
-          <span className="m-only">fPPG {fmt(p.ppg)} · L3 {p.last3 != null ? fmt(p.last3) : '–'}</span>
+          <span className="m-only">fPPG {fmt(p.ppg)} · L3 {p.last3 != null ? fmt(p.last3) : '–'} · trade {signed(tv.surplus)}</span>
         </div>
       </div>
       <div className="num fppg" title="Fantasy points per game this season (half PPR)">
@@ -42,9 +44,13 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
         <b>{onBye ? 'Bye' : out ? 'Out' : fmt(wk)}</b>
         <small>{p.locked ? 'final' : `app wk ${d.meta.week}`}</small>
       </div>
-      <div className="num ros">
+      <div className="num ros" title="Weighted points per week from next week on. Playoff weeks count 1.5×.">
         <b>{fmt(lab.v(p))}</b>
         <small>ROS/wk</small>
+      </div>
+      <div className="num trade" title={`Trade value: ${fmt(tv.production)} pts/wk minus the replacement ${p.pos} at ${fmt(tv.replacement)} (QB12, RB30, WR30, TE12). Playoff weeks count 1.5×. Bye and injury weeks are already in the projection.`}>
+        <b>{signed(tv.surplus)}</b>
+        <small>trade</small>
       </div>
       <RankDelta p={p} />
     </div>
@@ -79,8 +85,8 @@ export function Roster() {
             <ul className="swaps">
               {wa.swaps.map((s) => (
                 <li key={s.out.id}>
-                  <span className="swap-in">Start {s.in.name}</span>
-                  <span className="muted">bench {s.out.name}</span>
+                  <span className="swap-in">Start <PlayerLink id={s.in.id} name={s.in.name} /></span>
+                  <span className="muted">bench <PlayerLink id={s.out.id} name={s.out.name} /></span>
                   <span className="gain">{signed(s.gain)} pts</span>
                 </li>
               ))}
