@@ -109,7 +109,7 @@ export function App() {
             <div className="team">
               <h1>{desk.me.name}</h1>
               <p className="sub">
-                {engine!.d.meta.leagueName}, {engine!.d.meta.scoring}, Week {engine!.d.meta.week}
+                {engine!.d.meta.leagueName}, {engine!.d.meta.scoring}, Week {engine!.d.meta.week} · New model
               </p>
             </div>
             <dl className="odds">
@@ -122,7 +122,7 @@ export function App() {
           </>
         ) : (
           <div className="team">
-            <h1>NFL board</h1>
+            <h1>NFL board · New model</h1>
             <p className="sub">This week's games, the spread, and the total</p>
           </div>
         )}

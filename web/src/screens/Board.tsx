@@ -307,7 +307,7 @@ export function Board() {
     <section className="screen board">
       <header className="board-head">
         <div>
-          <h2>Week {board.week || '—'}{board.season ? ` · ${board.season}` : ''}</h2>
+          <h2>Week {board.week || '—'}{board.season ? ` · ${board.season}` : ''} · New model</h2>
           <p className="muted">
             {source === 'live' ? 'Live scoreboard' : 'Saved scoreboard, ESPN did not answer'} · {when(board.fetchedAt)}
             {board.byes.length > 0 ? ` · Bye: ${board.byes.map((b) => b.abbr).join(', ')}` : ''}
