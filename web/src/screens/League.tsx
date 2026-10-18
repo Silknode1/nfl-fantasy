@@ -18,6 +18,7 @@ export function League() {
       <GlassCard featured lean>
         <h2>Title board</h2>
         <p className="muted small">Teams in order of this model's title odds. Yours stays marked. The number is an estimate, not a promise.</p>
+        <p className="news-next"><a className="dest" href="#team">My team</a><a className="dest" href="#trades">Trades</a><a className="dest" href="#espn">Vs ESPN</a></p>
         <div className="rank-list">
           {teams.map((t, i) => (
             <RankingRow
@@ -35,7 +36,7 @@ export function League() {
       <GlassCard>
         <h2>Where every team stands</h2>
         <p className="muted small">
-          Each card is one team. Title odds lead. The chips are league rank at that spot, from the rest-of-season value of its best starters (1 is best). Odds come from 3,000 simulated seasons: remaining schedule, wins then points for seeding, top six in, seeds one and two get byes. Odds move by about ±2 points between runs. Hold a chip for projected points per week.
+          Each card is one team. Title odds lead. Each chip is league rank at that spot (1 is best), with projected points per week beside the rank. Odds come from 3,000 simulated seasons: remaining schedule, wins then points for seeding, top six in, seeds one and two get byes. Odds move by about ±2 points between runs.
         </p>
         <div className="stand-list">
           {teams.map((t) => {
@@ -66,7 +67,7 @@ export function League() {
                       style={{ background: cellBg(r[k].rank) }}
                       title={`${t.name} ${LABEL[k]}: rank ${r[k].rank}, ${fmt(r[k].value)} projected pts/wk`}
                     >
-                      {LABEL[k]} <b>{r[k].rank}</b>
+                      <span>{LABEL[k]}</span> <b>{r[k].rank}</b> <small>{fmt(r[k].value)}</small>
                     </span>
                   ))}
                 </div>

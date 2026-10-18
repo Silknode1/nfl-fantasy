@@ -154,7 +154,7 @@ export function Roster() {
 
       <GlassCard>
         <h2>Bench</h2>
-        {bench.length === 0 ? <p className="muted">The bench is clear this week.</p> : bench.map((p) => <PlayerRow key={p.id} p={p} slot="Bn" />)}
+        {bench.length === 0 ? <p className="muted">The bench is clear this week. <a className="dest" href="#waivers">Check waivers</a>.</p> : bench.map((p) => <PlayerRow key={p.id} p={p} slot="Bn" />)}
       </GlassCard>
 
       {ir.length > 0 && (

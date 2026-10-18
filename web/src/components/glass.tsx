@@ -20,6 +20,7 @@ export function GlassCard({
   as: Tag = 'section',
   style,
   live,
+  id,
 }: {
   children: ReactNode
   className?: string
@@ -28,9 +29,10 @@ export function GlassCard({
   as?: 'section' | 'article' | 'div'
   style?: CSSProperties
   live?: 'polite' | 'assertive'
+  id?: string
 }) {
   const cls = ['glass', 'panel', featured ? 'featured' : '', lean ? 'lean' : '', className].filter(Boolean).join(' ')
-  return <Tag className={cls} style={style} aria-live={live}>{children}</Tag>
+  return <Tag id={id} className={cls} style={style} aria-live={live}>{children}</Tag>
 }
 
 /** Related numbers, quiet labels, one strong value. */

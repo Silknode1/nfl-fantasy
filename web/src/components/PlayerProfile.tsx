@@ -94,7 +94,7 @@ export function PlayerProfile({ p, week, onBack, page = false }: { p: Player; we
                 items={[
                   { label: `vs ${opp}`, value: matchupWord(dr.factor), className: 'hero', tone: dr.factor >= 1.08 ? 'up' : dr.factor <= 0.92 ? 'down' : 'neutral' },
                   { label: 'vs average', value: `${dr.factor >= 1 ? '+' : ''}${((dr.factor - 1) * 100).toFixed(0)}%` },
-                  { label: 'Softest', value: `${dr.rank}/${dr.of}` },
+                  { label: 'Def rank', value: `${dr.rank}/${dr.of}`, title: '1 is the defense that gives up the most points to this position' },
                 ]}
               />
               <p className="muted small"><TeamLink abbr={opp} /> is a {matchupWord(dr.factor)} defense against {p.pos}s. Playoff draw: {sosLabel(playoffSos(d, p))} vs average defense, Weeks {d.meta.regularWeeks + 1} to {d.meta.lastWeek}.</p>
