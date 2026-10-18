@@ -5,6 +5,7 @@ import { useNumbered } from '../focus'
 import { DECLINE_BELOW, KIND_LABEL, kindOf, type TradeEval } from '../engine/trade'
 import { tradeSummary, verdict, ordinal } from '../engine/summary'
 import { Avatar, GradeMark, InjuryTag, fmt, pct, signed } from '../components/bits'
+import { EmptyState, GlassCard, Skeleton } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 
 function Side({ title, players }: { title: string; players: Player[] }) {
@@ -30,23 +31,20 @@ function RankShift({ ev }: { ev: TradeEval }) {
   if (!ev.ranks) return null
   const keys: (Pos | 'FLEX')[] = ['QB', 'RB', 'WR', 'TE', 'FLEX']
   return (
-    <table className="ranks-table">
-      <caption>Your league rank by position</caption>
-      <thead>
-        <tr><th></th>{keys.map((k) => <th key={k}>{k}</th>)}</tr>
-      </thead>
-      <tbody>
-        <tr><th>Now</th>{keys.map((k) => <td key={k}>{ordinal(ev.ranks!.before[k].rank)}</td>)}</tr>
-        <tr>
-          <th>After</th>
-          {keys.map((k) => {
-            const b = ev.ranks!.before[k].rank
-            const a = ev.ranks!.after[k].rank
-            return <td key={k} className={a < b ? 'up' : a > b ? 'down' : ''}>{ordinal(a)}</td>
-          })}
-        </tr>
-      </tbody>
-    </table>
+    <div className="rank-shift" aria-label="Your league rank by position">
+      {keys.map((k) => {
+        const before = ev.ranks!.before[k].rank
+        const after = ev.ranks!.after[k].rank
+        const tone = after < before ? 'up' : after > before ? 'down' : ''
+        return (
+          <div key={k} className={`shift ${tone}`.trim()} title={`${k}: ${ordinal(before)} now, ${ordinal(after)} after`}>
+            <span>{k}</span>
+            <b>{ordinal(after)}</b>
+            <small>{after === before ? 'unchanged' : `was ${ordinal(before)}`}</small>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -60,7 +58,7 @@ function Counters({ ev, onPick }: { ev: TradeEval; onPick: (e: TradeEval) => voi
       <ol>
         {list.map((c) => (
           <li key={c.trade.give.map((p) => p.id).join() + '>' + c.trade.get.map((p) => p.id).join()}>
-            <button className="trade-item" onClick={() => onPick(c)}>
+            <button className="trade-item lift" onClick={() => onPick(c)}>
               <GradeMark grade={c.grade} size="sm" />
               <span className="ti-body">
                 <span className="ti-line"><span className="muted">Give</span> {c.trade.give.map((p) => p.name).join(' + ')}</span>
@@ -83,7 +81,7 @@ export function TradePreview({ ev, onPick }: { ev: TradeEval; onPick?: (e: Trade
   const v = verdict(ev.grade)
   const lines = tradeSummary(ev, d, lab)
   return (
-    <section className="panel preview" aria-live="polite">
+    <GlassCard className="preview" live="polite">
       <div className="preview-top">
         <Side title="You give" players={ev.trade.give} />
         <div className="grade-col" key={ev.trade.give.map((p) => p.id).join() + ev.trade.get.map((p) => p.id).join()}>
@@ -101,11 +99,11 @@ export function TradePreview({ ev, onPick }: { ev: TradeEval; onPick?: (e: Trade
         {lines.map((l, i) => <p key={i}>{l}</p>)}
       </div>
       <div className="stat-grid">
-        <div><small>Starting pts/wk, Weeks {d.meta.week + 1}–{d.meta.regularWeeks}</small><b>{fmt(ev.me.before.regular)} <span className="arrow">to</span> {fmt(ev.me.after.regular)}</b><em className={ev.me.regDelta >= 0 ? 'up' : 'down'}>{signed(ev.me.regDelta)}</em></div>
-        <div><small>Starting pts/wk, playoffs</small><b>{fmt(ev.me.before.playoff)} <span className="arrow">to</span> {fmt(ev.me.after.playoff)}</b><em className={ev.me.poDelta >= 0 ? 'up' : 'down'}>{signed(ev.me.poDelta)}</em></div>
-        {ev.title && <div><small>Title odds</small><b>{pct(ev.title.before, 1)} <span className="arrow">to</span> {pct(ev.title.after, 1)}</b><em className={ev.title.after >= ev.title.before ? 'up' : 'down'}>{signed((ev.title.after - ev.title.before) * 100)} pts</em></div>}
-        {ev.playoff && <div><small>Playoff odds</small><b>{pct(ev.playoff.before, 1)} <span className="arrow">to</span> {pct(ev.playoff.after, 1)}</b><em className={ev.playoff.after >= ev.playoff.before ? 'up' : 'down'}>{signed((ev.playoff.after - ev.playoff.before) * 100)} pts</em></div>}
-        <div><small>They accept (estimate)</small><b>{pct(ev.acceptance)}</b><em className="muted">their lineup {signed(ev.partner.delta)}/wk</em></div>
+        <div className={ev.me.regDelta >= 0 ? 'up' : 'down'}><small>Starting pts/wk, Weeks {d.meta.week + 1}–{d.meta.regularWeeks}</small><b>{signed(ev.me.regDelta)}</b><em>{fmt(ev.me.before.regular)} to {fmt(ev.me.after.regular)}</em></div>
+        <div className={ev.me.poDelta >= 0 ? 'up' : 'down'}><small>Starting pts/wk, playoffs</small><b>{signed(ev.me.poDelta)}</b><em>{fmt(ev.me.before.playoff)} to {fmt(ev.me.after.playoff)}</em></div>
+        {ev.title && <div className={ev.title.after >= ev.title.before ? 'up' : 'down'}><small>Title odds</small><b>{signed((ev.title.after - ev.title.before) * 100)} pts</b><em>{pct(ev.title.before, 1)} to {pct(ev.title.after, 1)}</em></div>}
+        {ev.playoff && <div className={ev.playoff.after >= ev.playoff.before ? 'up' : 'down'}><small>Playoff odds</small><b>{signed((ev.playoff.after - ev.playoff.before) * 100)} pts</b><em>{pct(ev.playoff.before, 1)} to {pct(ev.playoff.after, 1)}</em></div>}
+        <div><small>They accept (estimate)</small><b>{pct(ev.acceptance)}</b><em>their lineup {signed(ev.partner.delta)}/wk</em></div>
       </div>
       <RankShift ev={ev} />
       {onPick && ev.acceptance < 0.3 && <Counters ev={ev} onPick={onPick} />}
@@ -115,7 +113,7 @@ export function TradePreview({ ev, onPick }: { ev: TradeEval; onPick?: (e: Trade
           {ev.dropsMe.length ? `you'd drop ${ev.dropsMe.map((p) => p.name).join(', ')}` : ''}.
         </p>
       )}
-    </section>
+    </GlassCard>
   )
 }
 
@@ -135,7 +133,7 @@ function Builder({ onEval }: { onEval: (ev: TradeEval | null) => void }) {
     onEval(deepen(ev))
   }
   return (
-    <section className="panel builder">
+    <GlassCard className="builder">
       <h2>Build a trade</h2>
       <label className="field">
         Trade with
@@ -164,7 +162,7 @@ function Builder({ onEval }: { onEval: (ev: TradeEval | null) => void }) {
         </fieldset>
       </div>
       <button className="primary" disabled={!give.length || !get.length} onClick={run}>Grade this trade</button>
-    </section>
+    </GlassCard>
   )
 }
 
@@ -189,7 +187,7 @@ export function Trades() {
   const info = TABS.find((t) => t.id === tab)!
   return (
     <div className="screen trades">
-      <section className="panel trade-list">
+      <GlassCard className="trade-list">
         <h2>Recommended trades</h2>
         <div className="seg seg-wrap" role="tablist" aria-label="Deal shape">
           {TABS.map((t) => (
@@ -202,15 +200,15 @@ export function Trades() {
         <p className="muted small">
           {board ? `Checked ${lab.searched.toLocaleString()} deals. ` : ''}{info.hint} Playoff weeks count 1.5×.
         </p>
-        {!board && <p className="loading">Checking deals across 11 teams: {progress.toLocaleString()} so far</p>}
-        {list?.length === 0 && <p>Nothing of this shape both helps you and has a fair chance of a yes. Check back after waivers run.</p>}
+        {!board && <Skeleton variant="rows" label={`Checking deals across 11 teams: ${progress.toLocaleString()} so far`} />}
+        {list?.length === 0 && <EmptyState title="No deal of this shape" body="Nothing both helps you and has a fair chance of a yes. Check back after waivers run, or build a trade yourself." />}
         <ol>
           {list?.map((ev) => {
             const partner = d.teams.find((t) => t.id === ev.trade.partnerId)!
             const active = current === ev
             return (
               <li key={ev.trade.partnerId + ev.trade.give.map((p) => p.id).join() + ev.trade.get.map((p) => p.id).join()}>
-                <button className={`trade-item${active ? ' active' : ''}`} onClick={() => { setCustom(null); setSel(ev) }}>
+                <button className={`trade-item lift${active ? ' active' : ''}`} onClick={() => { setCustom(null); setSel(ev) }}>
                   <GradeMark grade={ev.grade} size="sm" />
                   <span className="ti-body">
                     <span className="ti-line"><span className="muted">Give</span> {ev.trade.give.map((p) => p.name).join(' + ')}</span>
@@ -226,9 +224,9 @@ export function Trades() {
             )
           })}
         </ol>
-      </section>
+      </GlassCard>
       <div className="trade-main">
-        {current ? <TradePreview ev={current} onPick={(e) => { setCustom(e) }} /> : <section className="panel"><p className="loading">Grading trades</p></section>}
+        {current ? <TradePreview ev={current} onPick={(e) => { setCustom(e) }} /> : !board ? <GlassCard><Skeleton variant="card" label="Grading trades" /></GlassCard> : <EmptyState title="Nothing to preview" body="This shape has no recommended deal. Switch tabs, or build a trade below." />}
         <Builder onEval={setCustom} />
       </div>
     </div>

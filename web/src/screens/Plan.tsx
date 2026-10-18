@@ -2,24 +2,25 @@ import { useEngineCtx } from '../dataContext'
 import { useNumbered } from '../focus'
 import type { PlanItem } from '../engine/advice'
 import { pct } from '../components/bits'
+import { GlassCard, Skeleton, StatGroup } from '../components/glass'
 
 function Column({ title, when, items }: { title: string; when: string; items: PlanItem[] }) {
   return (
-    <section className="panel plan-col">
+    <GlassCard className="plan-col">
       <h2>{title}</h2>
       <p className="when">{when}</p>
       <ul>
         {items.map((it, i) => (
-          <li key={i} className={`plan-item ${it.tone ?? 'info'}`}>
-            <div className="plan-title">
-              <span>{it.title}</span>
-              {it.stat && <b>{it.stat}</b>}
+          <li key={i} className={`plan-item lift ${it.tone ?? 'info'}`}>
+            {it.stat && <b className={it.stat.startsWith('+') ? 'plan-stat up' : 'plan-stat'}>{it.stat}</b>}
+            <div>
+              <div className="plan-title">{it.title}</div>
+              <p>{it.detail}</p>
             </div>
-            <p>{it.detail}</p>
           </li>
         ))}
       </ul>
-    </section>
+    </GlassCard>
   )
 }
 
@@ -27,16 +28,31 @@ export function Plan() {
   const { d, plan, sim } = useEngineCtx()
   useNumbered([])
   const me = d.meta.myTeamId
-  if (!plan) return <div className="screen"><section className="panel"><p className="loading">Building your plan once the trade search finishes…</p></section></div>
+  const team = d.teams.find((t) => t.id === me)!
+  if (!plan) {
+    return (
+      <div className="screen">
+        <Skeleton variant="rows" label="Building your plan once the trade search finishes" />
+      </div>
+    )
+  }
   return (
     <div className="screen">
-      <section className="panel plan-head">
+      <GlassCard featured lean className="plan-head">
         <h2>Path to the title</h2>
+        <StatGroup
+          label="Where you stand"
+          items={[
+            { label: 'Record', value: `${team.wins}-${team.losses}` },
+            { label: 'Playoff odds', value: pct(sim.playoff[me]) },
+            { label: 'Title odds', value: pct(sim.title[me]), tone: 'up', className: 'hero' },
+          ]}
+        />
         <p>
-          You're {d.teams.find((t) => t.id === me)!.wins}-{d.teams.find((t) => t.id === me)!.losses} with {pct(sim.playoff[me])} playoff odds and {pct(sim.title[me])} title odds. The job now is less about making the playoffs and more about the strongest possible lineup for Weeks 15–17.
+          The job now is less about making the playoffs and more about the strongest possible lineup for Weeks 15–17.
         </p>
         <p className="news-next"><a className="dest" href="#team">My team</a><a className="dest" href="#trades">Trades</a><a className="dest" href="#news">News</a></p>
-      </section>
+      </GlassCard>
       <div className="plan-cols">
         <Column title="This week" when={`Week ${d.meta.week}, before kickoff and the next waiver run`} items={plan.short} />
         <Column title="Next few weeks" when={`Weeks ${d.meta.week + 1}–${d.meta.week + 4}`} items={plan.medium} />

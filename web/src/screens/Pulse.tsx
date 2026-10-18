@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Player, TrendRow } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useFocus } from '../focus'
+import { EmptyState, GlassCard } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 
 type Source = 'sleeper' | 'espn'
@@ -17,18 +18,19 @@ function Bars({ title, rows, kind, src, status, onPick }: {
   const val = (r: TrendRow) => (src === 'espn' ? Math.abs(r.change ?? 0) : r.count ?? 0)
   const max = Math.max(1, ...rows.map(val))
   return (
-    <section className="pulse-col">
+    <GlassCard className="pulse-col">
       <h3>{title}</h3>
-      {rows.length === 0 && <p className="muted small">No players at this position in this window.</p>}
+      {rows.length === 0 && <EmptyState title="Quiet at this spot" body="No players at this position in this window. Widen the position or the timeframe." />}
       <ol className="pulse-list">
         {rows.map((r) => {
           const st = status(r)
-          const v = src === 'espn' ? `${pts(r.change ?? 0)} pts` : count(r.count ?? 0)
+          const v = src === 'espn' ? `${pts(r.change ?? 0)}` : count(r.count ?? 0)
+          const unit = src === 'espn' ? 'pts rostered' : kind === 'add' ? 'adds' : 'drops'
           const tip = src === 'espn'
             ? `${r.name}: ${pts(r.change ?? 0)} pts rostered this week, ${r.rostered}% rostered, ${r.started}% started`
             : `${r.name}: ${(r.count ?? 0).toLocaleString('en-US')} ${kind === 'add' ? 'adds' : 'drops'}`
           return (
-            <li key={`${r.rank}-${r.name}`} className={st.p ? 'pick' : ''} title={tip}
+            <li key={`${r.rank}-${r.name}`} className={st.p ? 'pick lift' : 'lift'} title={tip}
               onClick={() => st.p && onPick(st.p)} onKeyDown={(e) => { if (st.p && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPick(st.p) } }}
               tabIndex={st.p ? 0 : undefined}>
               <span className={`dot ${st.cls}`} aria-hidden="true" />
@@ -36,13 +38,16 @@ function Bars({ title, rows, kind, src, status, onPick }: {
                 {st.p ? <PlayerLink id={st.p.id} name={r.name} /> : r.name}
                 <small>{r.pos} {r.team ? <TeamLink abbr={r.team} /> : ''}{r.inj ? ` · ${r.inj.toLowerCase().replace('_', ' ')}` : ''}{st.label ? ` · ${st.label}` : ''}</small>
               </span>
-              <span className="pl-bar"><i className={kind} style={{ width: `${Math.max(2, (100 * val(r)) / max)}%` }} /></span>
-              <span className="pl-val">{v}</span>
+              <span className="pl-bar" aria-hidden="true"><i className={kind} style={{ width: `${Math.max(2, (100 * val(r)) / max)}%` }} /></span>
+              <span className={`pl-val${kind === 'add' && (src === 'sleeper' || (r.change ?? 0) > 0) ? ' up' : ''}`}>
+                {v}
+                <small className="pl-unit">{unit}</small>
+              </span>
             </li>
           )
         })}
       </ol>
-    </section>
+    </GlassCard>
   )
 }
 
@@ -66,7 +71,7 @@ export function Pulse() {
   if (!t) {
     return (
       <div className="screen">
-        <section className="panel"><h2>Waiver pulse</h2><p className="muted">No trend data yet. Run <code>./fantasy.sh</code> to pull Sleeper and ESPN trends.</p></section>
+        <EmptyState title="No waiver pulse yet" body="Trend data has not landed. Run ./fantasy.sh to pull Sleeper and ESPN adds and drops." />
       </div>
     )
   }
@@ -78,7 +83,7 @@ export function Pulse() {
   const pulled = new Date(t.pulledAt).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })
   return (
     <div className="screen">
-      <section className="panel">
+      <GlassCard featured lean>
         <div className="panel-head">
           <h2>Waiver pulse</h2>
           <div className="seg" role="group" aria-label="Source">
@@ -119,11 +124,11 @@ export function Pulse() {
             ))}.
           </p>
         )}
-        <div className="pulse-cols">
-          <Bars title="Most added" rows={adds} kind="add" src={src} status={status} onPick={setPinned} />
-          <Bars title="Most dropped" rows={drops} kind="drop" src={src} status={status} onPick={setPinned} />
-        </div>
-      </section>
+      </GlassCard>
+      <div className="pulse-cols">
+        <Bars title="Most added" rows={adds} kind="add" src={src} status={status} onPick={setPinned} />
+        <Bars title="Most dropped" rows={drops} kind="drop" src={src} status={status} onPick={setPinned} />
+      </div>
     </div>
   )
 }
