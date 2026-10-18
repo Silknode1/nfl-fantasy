@@ -466,18 +466,19 @@ button.ghost { background: transparent; border: 1px solid var(--line); border-ra
 }
 
 /* ---------------------------------------------------------------- games board */
-.app.no-rail { grid-template-columns: 168px minmax(0, 1fr); grid-template-areas: 'mast mast' 'nav main' 'foot foot'; }
+.app.no-rail { grid-template-columns: 188px minmax(0, 1fr); grid-template-areas: 'mast mast' 'nav main' 'foot foot'; }
 .board-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
 .board-head h2 { font-size: 28px; }
 .slate-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.slate-stats > div, .slate-stats > button {
+.slate-stats > div, .slate-stats > button, .slate-stats > .slate-jump {
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
-  padding: 8px 10px; text-align: left; display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  padding: 10px 12px; text-align: left; display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  min-height: 44px; text-decoration: none; color: inherit; box-shadow: var(--shadow-card);
 }
-.slate-stats button { cursor: pointer; }
+.slate-stats button, .slate-jump { cursor: pointer; }
 .slate-stats button:disabled { cursor: default; opacity: 0.6; }
 .slate-stats small, .mcol small { color: var(--muted); font-size: 11px; }
-.slate-stats b { font-family: var(--display); font-weight: 800; font-size: 28px; line-height: 1; color: #eef3f9; }
+.slate-stats b { font-family: var(--display); font-weight: 800; font-size: 28px; line-height: 1; color: var(--text); }
 .slate-stats em, .mcol em { font-style: normal; color: var(--muted); font-size: 11px; }
 .board-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .sortbox, .findbox { display: flex; align-items: center; gap: 8px; color: var(--muted); }

@@ -183,8 +183,8 @@ function Card({ game, open, ctx, onToggle }: { game: BoardGame; open: boolean; c
   const showScore = game.state !== 'pre'
   const chips = moveChips(game)
   return (
-    <article className={open ? 'gcard open' : 'gcard'}>
-      <button type="button" className="gcard-hit" aria-expanded={open} onClick={onToggle}>
+    <article className={open ? 'gcard open lift' : 'gcard lift'}>
+      <div className="gcard-hit">
         <div className="gteams">
           <TeamLine side={game.away} line={q?.away.line ?? null} price={q?.away.price ?? null} showScore={showScore} />
           <TeamLine side={game.home} line={q?.home.line ?? null} price={q?.home.price ?? null} showScore={showScore} />
