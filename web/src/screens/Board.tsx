@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchGameContext, fetchScoreboard } from '../board/load'
 import { useOptionalEngine } from '../dataContext'
+import { EmptyState, GlassCard, MatchupCard, ShortcutChip, Skeleton, StatGroup } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 import {
   filterGames,
@@ -146,9 +147,16 @@ export function GameDetail({ game, ctx }: { game: BoardGame; ctx: GameContext | 
         <p>No line on this game. The final score is the result. A missing quote is not a number to invent.</p>
       )}
       {game.implied && (
-        <p>
-          <b>Implied totals.</b> {game.away.abbr} {game.implied.away} · {game.home.abbr} {game.implied.home}. That is (total ± spread) / 2. The favorite's number is higher. It is how many points the market has each team scoring, which is the environment of the game.
-        </p>
+        <>
+          <StatGroup
+            label="Implied totals"
+            items={[
+              { label: game.away.abbr, value: String(game.implied.away) },
+              { label: game.home.abbr, value: String(game.implied.home), className: 'hero' },
+            ]}
+          />
+          <p className="muted small">Implied total is (total ± spread) / 2. The favorite's number is higher. It is how many points the market has each team scoring, which is the environment of the game.</p>
+        </>
       )}
       {sentences.map((s) => <p key={s}>{s}</p>)}
       {script && <p>{script}</p>}
@@ -161,7 +169,7 @@ export function GameDetail({ game, ctx }: { game: BoardGame; ctx: GameContext | 
           ))}
         </p>
       )}
-      {ctx === 'loading' && <p className="loading">Injury report and last five</p>}
+      {ctx === 'loading' && <Skeleton variant="rows" label="Injury report and last five" />}
       {ctx === 'error' && <p>Injury report and recent scores did not load. The line above is still the scoreboard quote.</p>}
       {ctx && ctx !== 'loading' && ctx !== 'error' && (
         <>
@@ -183,7 +191,7 @@ function Card({ game, open, ctx, onToggle }: { game: BoardGame; open: boolean; c
   const showScore = game.state !== 'pre'
   const chips = moveChips(game)
   return (
-    <article className={open ? 'gcard open lift' : 'gcard lift'}>
+    <MatchupCard open={open}>
       <div className="gcard-hit">
         <div className="gteams">
           <TeamLine side={game.away} line={q?.away.line ?? null} price={q?.away.price ?? null} showScore={showScore} />
@@ -203,7 +211,7 @@ function Card({ game, open, ctx, onToggle }: { game: BoardGame; open: boolean; c
         {open ? 'Hide the line' : 'Line, injuries, last five'}
       </button>
       {open && <GameDetail game={game} ctx={ctx} />}
-    </article>
+    </MatchupCard>
   )
 }
 
@@ -245,6 +253,21 @@ export function Board() {
       stop = true
       window.clearInterval(id)
     }
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const target = e.target
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return
+      }
+      e.preventDefault()
+      document.getElementById('board-find')?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   const refresh = () => {
@@ -304,24 +327,23 @@ export function Board() {
   if (error && !board) {
     return (
       <section className="screen">
-        <div className="panel">
-          <h2>Games</h2>
-          <p>{error}</p>
-        </div>
+        <EmptyState title="The board didn't answer" body={error}>
+          <p className="news-next"><a className="dest" href="#team">Back to the desk</a></p>
+        </EmptyState>
       </section>
     )
   }
   if (!board) {
     return (
       <section className="screen">
-        <p className="loading">Loading the week</p>
+        <Skeleton variant="rows" label="Loading the week" />
       </section>
     )
   }
 
   return (
     <section className="screen board">
-      <header className="board-head">
+      <GlassCard featured lean className="board-head">
         <div>
           <h2>Week {board.week || '—'}{board.season ? ` · ${board.season}` : ''}</h2>
           <p className="muted">
@@ -330,10 +352,10 @@ export function Board() {
           </p>
           {error && <p>{error}</p>}
         </div>
-        <button type="button" className="ghost" onClick={refresh} disabled={refreshing}>
+        <button type="button" className="ghost magnetic" onClick={refresh} disabled={refreshing}>
           {refreshing ? 'Refreshing' : 'Refresh'}
         </button>
-      </header>
+      </GlassCard>
 
       <div className="slate-stats">
         <div><small>Upcoming</small><b>{counts.pre}</b></div>
@@ -374,12 +396,16 @@ export function Board() {
         </label>
         <label className="findbox">
           <span className="sr">Find a team</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a team" aria-label="Find a team" />
+          <ShortcutChip keys="/" />
+          <input id="board-find" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a team" aria-label="Find a team" />
         </label>
       </div>
 
       {visible.length === 0 ? (
-        <p className="muted">{query.trim() ? `No game matches “${query.trim()}”.` : 'Nothing in this group.'}</p>
+        <EmptyState
+          title={query.trim() ? 'No match on the board' : 'Nothing in this window'}
+          body={query.trim() ? `No game matches “${query.trim()}”. Try another club or clear the search.` : 'This group is empty. Switch to All, or check back closer to kickoff.'}
+        />
       ) : (
         groups.map((group) => (
           <div key={group.label} className="window">

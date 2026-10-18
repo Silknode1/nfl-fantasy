@@ -18,19 +18,20 @@ import { PlayerPage } from './screens/PlayerPage'
 import { TeamPage } from './screens/TeamPage'
 import { GamePage } from './screens/GamePage'
 import { pct } from './components/bits'
+import { EmptyState, ShortcutChip, Skeleton, StatGroup, useMagneticHover } from './components/glass'
 import { noteHash } from './deskHistory'
 import { navCurrent, parseRoute, type Route, type ScreenId } from './route'
 
-const NAV: { id: ScreenId; label: string }[] = [
-  { id: 'team', label: 'My team' },
-  { id: 'trades', label: 'Trades' },
-  { id: 'waivers', label: 'Waivers' },
-  { id: 'pulse', label: 'Waiver pulse' },
-  { id: 'league', label: 'League' },
-  { id: 'espn', label: 'Vs ESPN' },
-  { id: 'plan', label: 'Season plan' },
-  { id: 'news', label: 'News' },
-  { id: 'games', label: 'Games' },
+const NAV: { id: ScreenId; label: string; key: string }[] = [
+  { id: 'team', label: 'My team', key: '1' },
+  { id: 'trades', label: 'Trades', key: '2' },
+  { id: 'waivers', label: 'Waivers', key: '3' },
+  { id: 'pulse', label: 'Waiver pulse', key: '4' },
+  { id: 'league', label: 'League', key: '5' },
+  { id: 'espn', label: 'Vs ESPN', key: '6' },
+  { id: 'plan', label: 'Season plan', key: '7' },
+  { id: 'news', label: 'News', key: '8' },
+  { id: 'games', label: 'Games', key: '9' },
 ]
 
 const LEAGUE_SCREENS: Partial<Record<ScreenId, JSX.Element>> = {
@@ -44,6 +45,16 @@ const LEAGUE_SCREENS: Partial<Record<ScreenId, JSX.Element>> = {
 }
 
 type ProjMode = 'expected' | 'plays'
+
+type Theme = 'dark' | 'light'
+
+function readTheme(): Theme {
+  try {
+    return localStorage.getItem('deskTheme') === 'light' ? 'light' : 'dark'
+  } catch {
+    return 'dark'
+  }
+}
 
 function readMode(): ProjMode {
   try {
@@ -90,11 +101,23 @@ function useRoute(): Route {
 
 export function App() {
   const [rawData, setData] = useState<FantasyData | null>(null)
+  const [theme, setTheme] = useState<Theme>(readTheme)
   const [mode, setModeState] = useState<ProjMode>(readMode)
+  useMagneticHover()
   const setMode = (m: ProjMode) => {
     setModeState(m)
     try {
       localStorage.setItem('projMode', m)
+    } catch {
+      /* private mode: the choice just won't persist */
+    }
+  }
+  const toggleTheme = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.dataset.theme = next
+    try {
+      localStorage.setItem('deskTheme', next)
     } catch {
       /* private mode: the choice just won't persist */
     }
@@ -106,7 +129,28 @@ export function App() {
   const current = navCurrent(route)
 
   useEffect(() => {
+    document.documentElement.dataset.theme = theme
+  }, [theme])
+
+  useEffect(() => {
     loadData().then(setData).catch((e: Error) => setError(e.message))
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
+      const target = e.target
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return
+      }
+      const hit = NAV.find((item) => item.key === e.key)
+      if (!hit) return
+      e.preventDefault()
+      window.location.hash = hit.id
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   const onBoard = current === 'games'
@@ -125,8 +169,12 @@ export function App() {
   else if (route.kind === 'game') main = <GamePage id={route.id} />
   else if (route.id === 'games') main = <Board />
   else if (route.id === 'news') main = <NewsPage />
-  else if (error) main = <div className="panel"><h2>Couldn't load your league</h2><p>{error}</p><p className="news-next"><a className="dest" href="#games">Games</a><a className="dest" href="#news">News</a></p></div>
-  else if (!engine) main = <p className="loading">Loading your league</p>
+  else if (error) main = (
+    <EmptyState title="Couldn't load your league" body={error}>
+      <p className="news-next"><a className="dest" href="#games">Games</a><a className="dest" href="#news">News</a></p>
+    </EmptyState>
+  )
+  else if (!engine) main = <Skeleton variant="desk" label="Pulling your league onto the desk" />
   else main = LEAGUE_SCREENS[route.id] ?? <Roster />
 
   const shell = (
@@ -139,39 +187,50 @@ export function App() {
         {desk ? (
           <>
             <div className="team">
+              <p className="kicker"><span className="status-dot accent" aria-hidden />Fantasy desk</p>
               <h1>{desk.me.name}</h1>
               <p className="sub">
                 {engine!.d.meta.leagueName}, {engine!.d.meta.scoring}, Week {engine!.d.meta.week}
                 <span className="model-tag">New model</span>
               </p>
             </div>
-            <dl className="odds">
-              <div><dt>Record</dt><dd>{desk.me.wins}-{desk.me.losses}{desk.me.ties ? `-${desk.me.ties}` : ''}</dd></div>
-              <div><dt>Points for</dt><dd>{desk.me.pf.toFixed(0)}</dd></div>
-              <div><dt>Playoff odds</dt><dd>{pct(engine!.sim.playoff[desk.me.id])}</dd></div>
-              <div><dt>Bye odds</dt><dd>{pct(engine!.sim.bye[desk.me.id])}</dd></div>
-              <div className="hot"><dt>Title odds</dt><dd>{pct(engine!.sim.title[desk.me.id])}</dd></div>
-            </dl>
+            <StatGroup
+              label="Season snapshot"
+              items={[
+                { label: 'Record', value: `${desk.me.wins}-${desk.me.losses}${desk.me.ties ? `-${desk.me.ties}` : ''}` },
+                { label: 'Points for', value: desk.me.pf.toFixed(0) },
+                { label: 'Playoff odds', value: pct(engine!.sim.playoff[desk.me.id]) },
+                { label: 'Bye odds', value: pct(engine!.sim.bye[desk.me.id]) },
+                { label: 'Title odds', value: pct(engine!.sim.title[desk.me.id]), tone: 'up' },
+              ]}
+            />
           </>
         ) : (
           <div className="team">
+            <p className="kicker"><span className="status-dot accent" aria-hidden />Fantasy desk</p>
             <h1>{bareTitle}</h1>
-            <p className="sub">{error ? 'League file not loaded' : 'Loading the desk'}</p>
+            <p className="sub">{error ? 'League file not loaded. Games and news still open.' : 'Setting the desk.'}</p>
           </div>
         )}
+        <div className="mast-actions">
+          <button type="button" className="theme-toggle magnetic" aria-pressed={theme === 'light'} onClick={toggleTheme}>
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
+        </div>
       </header>
 
       <nav className="nav" aria-label="Sections">
         {NAV.map((s) => (
           <a key={s.id} href={`#${s.id}`} className={current === s.id ? 'on' : ''} aria-current={current === s.id ? 'page' : undefined}>
             {s.label}
+            <ShortcutChip keys={s.key} />
           </a>
         ))}
         {desk && !onBoard && route.kind === 'screen' && route.id !== 'news' && (
           <div className="modebox" role="group" aria-label="Projection view">
             <span className="modebox-label">Projections</span>
-            <button type="button" className={mode === 'expected' ? 'on' : ''} aria-pressed={mode === 'expected'} onClick={() => setMode('expected')} title="Counts the chance an injured player sits (questionable about 63-75% to play)">Expected</button>
-            <button type="button" className={mode === 'plays' ? 'on' : ''} aria-pressed={mode === 'plays'} onClick={() => setMode('plays')} title="What a questionable or doubtful player scores if he plays (about 88% of usual)">If he plays</button>
+            <button type="button" className={mode === 'expected' ? 'on magnetic' : 'magnetic'} aria-pressed={mode === 'expected'} onClick={() => setMode('expected')} title="Counts the chance an injured player sits (questionable about 63-75% to play)">Expected</button>
+            <button type="button" className={mode === 'plays' ? 'on magnetic' : 'magnetic'} aria-pressed={mode === 'plays'} onClick={() => setMode('plays')} title="What a questionable or doubtful player scores if he plays (about 88% of usual)">If he plays</button>
           </div>
         )}
         {desk && (

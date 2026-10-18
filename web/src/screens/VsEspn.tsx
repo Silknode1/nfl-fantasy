@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { Player, Pos } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useNumbered } from '../focus'
-import { Avatar, InjuryTag, fmt } from '../components/bits'
+import { Avatar, InjuryTag, fmt, signed } from '../components/bits'
+import { EmptyState, GlassCard, StatGroup } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 
 function why(p: Player, higher: boolean): string {
@@ -22,29 +23,37 @@ function why(p: Player, higher: boolean): string {
 function Lane({ title, hint, items, higher }: { title: string; hint: string; items: Player[]; higher: boolean }) {
   const { d } = useEngineCtx()
   return (
-    <section className="panel lane">
+    <GlassCard className="lane">
       <h2>{title}</h2>
       <p className="muted small">{hint}</p>
-      {items.length === 0 && <p className="muted">No gaps of 4+ spots here.</p>}
+      {items.length === 0 && <EmptyState title="No gap of 4+ spots" body="Our rank and ESPN's rank sit close together here. Try another position or a wider pool." />}
       {items.map((p) => {
         const diff = (p.espnRank ?? 0) - p.ourRank
         const team = d.teams.find((t) => t.id === p.teamId)
         return (
-          <div className="erow" key={p.id}>
+          <article className="erow lift" key={p.id}>
             <Avatar p={p} size={48} />
             <div className="eid">
               <div className="pname"><PlayerLink id={p.id} name={p.name} /> <InjuryTag p={p} /></div>
               <div className="pmeta"><TeamLink abbr={p.nfl} /><span>{team ? (team.id === d.meta.myTeamId ? 'Your team' : team.name) : 'Free agent'}</span></div>
               <p className="why">{why(p, higher)}</p>
             </div>
+            <StatGroup
+              className="wstats"
+              label={`${p.name} rank gap`}
+              items={[
+                { key: 'ours', label: 'Our rank', value: `${p.pos}${p.ourRank}`, className: 'hero', tone: higher ? 'up' : 'down' },
+                { key: 'espn', label: 'ESPN', value: `${p.pos}${p.espnRank}` },
+                { key: 'gap', label: 'Gap', value: `${signed(diff, 0)} spots` },
+              ]}
+            />
             <div className="ebar" aria-label={`Ours ${p.pos}${p.ourRank}, ESPN ${p.pos}${p.espnRank}`}>
-              <span className="ebar-nums"><b>{p.pos}{p.ourRank}</b> <span className="muted">ESPN {p.pos}{p.espnRank}</span></span>
               <span className="ebar-track"><span className={`ebar-fill ${higher ? 'up' : 'down'}`} style={{ width: `${Math.min(100, Math.abs(diff) * 3)}%` }} /></span>
             </div>
-          </div>
+          </article>
         )
       })}
-    </section>
+    </GlassCard>
   )
 }
 
@@ -62,7 +71,7 @@ export function VsEspn() {
   useNumbered([...higher, ...lower])
   return (
     <div className="screen">
-      <section className="panel">
+      <GlassCard featured lean>
         <div className="panel-head">
           <h2>Where we disagree with ESPN</h2>
           <div className="seg" role="group" aria-label="Position">
@@ -79,7 +88,7 @@ export function VsEspn() {
         <p className="muted small">
           Our rank uses rest-of-season projected points (playoff weeks 1.5×) from scoring so far, ESPN's projections, usage trends, schedule and injuries. ESPN's rank orders its season projection. Gaps of 4+ spots shown, top {depth} at the position.
         </p>
-      </section>
+      </GlassCard>
       <div className="lanes">
         <Lane title="We rank higher than ESPN" hint="Buy targets: likely cheaper in trades than they should be." items={higher} higher />
         <Lane title="We rank lower than ESPN" hint="Sell candidates if you own them; managers still value them on ESPN's numbers." items={lower} higher={false} />

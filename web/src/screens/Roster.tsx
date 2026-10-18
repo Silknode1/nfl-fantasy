@@ -2,14 +2,36 @@ import { useState } from 'react'
 import type { Player } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useFocus, useNumbered } from '../focus'
-import { RangeChart } from '../components/RangeChart'
+import { RangeChart, weekRange } from '../components/RangeChart'
 import { PlayerProfile } from '../components/PlayerProfile'
 import { weekAdvice } from '../engine/advice'
 import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, signed } from '../components/bits'
+import { GlassCard, PlayerCard, StatGroup, SuccessMark } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 import { hot } from '../components/bits'
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX']
+
+function FloorSummary({ roster, week }: { roster: Player[]; week: number }) {
+  const rows = roster
+    .map((p) => ({ p, r: weekRange(p, week) }))
+    .filter((x): x is { p: Player; r: { floor: number; exp: number; ceil: number } } => x.r != null)
+  if (!rows.length) return <p className="muted small">No one on this roster is projected to play that week.</p>
+  const ceil = rows.reduce((a, b) => (b.r.ceil > a.r.ceil ? b : a))
+  const exp = rows.reduce((a, b) => (b.r.exp > a.r.exp ? b : a))
+  const floor = rows.reduce((a, b) => (b.r.floor < a.r.floor ? b : a))
+  const short = (name: string) => name.split(' ').slice(-1)[0] ?? name
+  return (
+    <StatGroup
+      label="Week range"
+      items={[
+        { label: `Ceiling · ${short(ceil.p.name)}`, value: fmt(ceil.r.ceil), tone: 'up', className: 'hero', title: `${ceil.p.name}, 90th percentile week` },
+        { label: `Expected · ${short(exp.p.name)}`, value: fmt(exp.r.exp), tone: 'accent', title: `${exp.p.name}, projected points` },
+        { label: `Floor · ${short(floor.p.name)}`, value: fmt(floor.r.floor), title: `${floor.p.name}, 10th percentile week` },
+      ]}
+    />
+  )
+}
 
 function PlayerRow({ p, slot }: { p: Player; slot: string }) {
   const { d, lab, tradeOf } = useEngineCtx()
@@ -17,8 +39,9 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
   const wk = p.proj[String(d.meta.week)] ?? 0
   const onBye = p.bye === d.meta.week
   const out = !p.locked && wk === 0 && !!p.inj && p.inj !== 'ACTIVE'
+  const heat = hot(p)
   return (
-    <div className="prow">
+    <PlayerCard>
       <span className="slot">{slot}</span>
       <Avatar p={p} />
       <div className="prow-id">
@@ -29,31 +52,20 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
           {p.bye && <span>Bye {p.bye}</span>}
           <InjuryTag p={p} />
           <PlayChance p={p} />
-          <span className="m-only">fPPG {fmt(p.ppg)} · L3 {p.last3 != null ? fmt(p.last3) : '–'} · trade {signed(tv.surplus)}</span>
+          <RankDelta p={p} />
         </div>
       </div>
-      <div className="num fppg" title="Fantasy points per game this season (half PPR)">
-        <b>{p.gp ? fmt(p.ppg) : '–'}</b>
-        <small>fPPG</small>
-      </div>
-      <div className={`num l3 ${hot(p)}`} title="Average of his last 3 games: how hot or cold he is">
-        <b>{p.last3 != null ? fmt(p.last3) : '–'}</b>
-        <small>last 3</small>
-      </div>
-      <div className="num wk" title={p.locked ? 'Final for this week' : 'Projected this week'}>
-        <b>{onBye ? 'Bye' : out ? 'Out' : fmt(wk)}</b>
-        <small>{p.locked ? 'final' : `app wk ${d.meta.week}`}</small>
-      </div>
-      <div className="num ros" title="Weighted points per week from next week on. Playoff weeks count 1.5×.">
-        <b>{fmt(lab.v(p))}</b>
-        <small>ROS/wk</small>
-      </div>
-      <div className="num trade" title={`Trade value: ${fmt(tv.production)} pts/wk minus the replacement ${p.pos} at ${fmt(tv.replacement)} (QB12, RB30, WR30, TE12). Playoff weeks count 1.5×. Bye and injury weeks are already in the projection.`}>
-        <b>{signed(tv.surplus)}</b>
-        <small>trade</small>
-      </div>
-      <RankDelta p={p} />
-    </div>
+      <StatGroup
+        className="player-stats"
+        items={[
+          { key: 'wk', label: p.locked ? 'Final' : `Week ${d.meta.week}`, value: onBye ? 'Bye' : out ? 'Out' : fmt(wk), className: 'wk hero', title: p.locked ? 'Final for this week' : 'Projected this week' },
+          { key: 'fppg', label: 'fPPG', value: p.gp ? fmt(p.ppg) : '–', className: 'fppg', title: 'Fantasy points per game this season (half PPR)' },
+          { key: 'l3', label: 'Last 3', value: p.last3 != null ? fmt(p.last3) : '–', className: 'l3', tone: heat === 'up' ? 'up' : heat === 'down' ? 'down' : 'neutral', title: 'Average of his last 3 games: how hot or cold he is' },
+          { key: 'ros', label: 'ROS/wk', value: fmt(lab.v(p)), className: 'ros', title: 'Weighted points per week from next week on. Playoff weeks count 1.5×.' },
+          { key: 'trade', label: 'Trade', value: signed(tv.surplus), className: 'trade', tone: tv.surplus > 0 ? 'up' : tv.surplus < 0 ? 'down' : 'neutral', title: `Trade value: ${fmt(tv.production)} pts/wk minus the replacement ${p.pos} at ${fmt(tv.replacement)} (QB12, RB30, WR30, TE12). Playoff weeks count 1.5×. Bye and injury weeks are already in the projection.` },
+        ]}
+      />
+    </PlayerCard>
   )
 }
 
@@ -75,12 +87,12 @@ export function Roster() {
   const weeks = Array.from({ length: d.meta.lastWeek - d.meta.week + 1 }, (_, i) => d.meta.week + i)
   return (
     <div className="screen">
-      <section className="panel advice">
+      <GlassCard featured lean as="section">
         <h2>Week {d.meta.week} lineup</h2>
         {wa.swaps.length ? (
           <>
             <p>
-              Your current lineup projects <b>{fmt(wa.current)}</b>. Make {wa.swaps.length === 1 ? 'this change' : 'these changes'} for <b>{fmt(wa.best)}</b>.
+              This week projects <b>{fmt(wa.current)}</b>. {wa.swaps.length === 1 ? 'One change' : 'A few changes'} gets you to <b>{fmt(wa.best)}</b>.
             </p>
             <ul className="swaps">
               {wa.swaps.map((s) => (
@@ -93,11 +105,11 @@ export function Roster() {
             </ul>
           </>
         ) : (
-          <p>Your lineup is already the best one available: <b>{fmt(wa.best)}</b> projected points.</p>
+          <SuccessMark major label={`This lineup is the one to roll with: ${fmt(wa.best)} projected points.`} />
         )}
-      </section>
+      </GlassCard>
 
-      <section className="panel">
+      <GlassCard>
         <div className="panel-head">
           <h2>Floor, expected, ceiling</h2>
           <div className="range-pick">
@@ -120,12 +132,13 @@ export function Roster() {
         ) : (
           <>
             <p className="muted small">Each player's projected half-PPR points: the dot is the expected score, the bar runs from a bad week (10th percentile) to a big week (90th percentile). Click a player to open his profile.</p>
+            <FloorSummary roster={lab.rosters.get(rangeTeam) ?? []} week={rangeWeek} />
             <RangeChart roster={lab.rosters.get(rangeTeam) ?? []} week={rangeWeek} onPick={pick} />
           </>
         )}
-      </section>
+      </GlassCard>
 
-      <section className="panel">
+      <GlassCard>
         <div className="panel-head">
           <h2>Starters</h2>
           <div className="pos-ranks" aria-label="Your league rank by position">
@@ -137,18 +150,18 @@ export function Roster() {
           </div>
         </div>
         {starters.map((p) => <PlayerRow key={p.id} p={p} slot={p.slot === 'FLEX' ? 'Flex' : p.slot!} />)}
-      </section>
+      </GlassCard>
 
-      <section className="panel">
+      <GlassCard>
         <h2>Bench</h2>
-        {bench.map((p) => <PlayerRow key={p.id} p={p} slot="Bn" />)}
-      </section>
+        {bench.length === 0 ? <p className="muted">The bench is clear this week.</p> : bench.map((p) => <PlayerRow key={p.id} p={p} slot="Bn" />)}
+      </GlassCard>
 
       {ir.length > 0 && (
-        <section className="panel">
+        <GlassCard>
           <h2>Injured reserve</h2>
           {ir.map((p) => <PlayerRow key={p.id} p={p} slot="IR" />)}
-        </section>
+        </GlassCard>
       )}
     </div>
   )
