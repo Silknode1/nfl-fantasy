@@ -71,12 +71,12 @@ p { margin: 0.4em 0; max-width: 78ch; }
   gap: 24px;
   padding: 18px 22px 16px;
   flex-wrap: wrap;
-  background: var(--panel);
+  background: rgba(14, 16, 22, 0.5);
   border: 1px solid var(--line);
-  border-radius: 28px;
+  border-radius: 26px;
   backdrop-filter: var(--glass);
   -webkit-backdrop-filter: var(--glass);
-  box-shadow: var(--shadow-mast);
+  box-shadow: var(--edge);
 }
 .nav {
   grid-area: nav;

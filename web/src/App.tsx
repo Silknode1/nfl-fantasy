@@ -155,19 +155,19 @@ export function App() {
           </>
         ) : (
           <div className="team">
-            <h1>{bareTitle}</h1>
+            <h1>{onBoard ? 'Games' : 'My team'}</h1>
             <p className="sub">{error ? 'League file not loaded' : 'Loading the desk'}</p>
           </div>
         )}
       </header>
 
       <nav className="nav" aria-label="Sections">
-        {NAV.map((s) => (
-          <a key={s.id} href={`#${s.id}`} className={current === s.id ? 'on' : ''} aria-current={current === s.id ? 'page' : undefined}>
+        {SCREENS.map((s) => (
+          <a key={s.id} href={`#${s.id}`} className={screen === s.id ? 'on' : ''} aria-current={screen === s.id ? 'page' : undefined} onClick={(e) => { e.preventDefault(); go(s.id) }}>
             {s.label}
           </a>
         ))}
-        {desk && !onBoard && route.kind === 'screen' && route.id !== 'news' && (
+        {desk && !onBoard && (
           <div className="modebox" role="group" aria-label="Projection view">
             <span className="modebox-label">Projections</span>
             <button type="button" className={mode === 'expected' ? 'on' : ''} aria-pressed={mode === 'expected'} onClick={() => setMode('expected')} title="Counts the chance an injured player sits (questionable about 63-75% to play)">Expected</button>
