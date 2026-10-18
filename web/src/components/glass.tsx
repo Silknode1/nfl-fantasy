@@ -19,6 +19,7 @@ export function GlassCard({
   lean = false,
   as: Tag = 'section',
   style,
+  live,
 }: {
   children: ReactNode
   className?: string
@@ -26,9 +27,10 @@ export function GlassCard({
   lean?: boolean
   as?: 'section' | 'article' | 'div'
   style?: CSSProperties
+  live?: 'polite' | 'assertive'
 }) {
   const cls = ['glass', 'panel', featured ? 'featured' : '', lean ? 'lean' : '', className].filter(Boolean).join(' ')
-  return <Tag className={cls} style={style}>{children}</Tag>
+  return <Tag className={cls} style={style} aria-live={live}>{children}</Tag>
 }
 
 /** Related numbers, quiet labels, one strong value. */
@@ -49,15 +51,17 @@ export function NewsCard({
   kicker,
   title,
   summary,
+  featured = false,
   children,
 }: {
   kicker: string
   title: ReactNode
   summary?: string | null
+  featured?: boolean
   children?: ReactNode
 }) {
   return (
-    <article className="news-card glass lift">
+    <article className={featured ? 'news-card glass lift featured' : 'news-card glass lift'}>
       <p className="news-kicker">{kicker}</p>
       <h3>{title}</h3>
       {summary ? <p>{summary}</p> : null}
