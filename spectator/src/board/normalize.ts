@@ -513,6 +513,57 @@ function injuriesFrom(rows: unknown): { injuries: InjuryRow[]; irCount: number }
   return { injuries, irCount }
 }
 
+/** Closing price from a game summary. Past scoreboards often omit odds; the summary still carries them. */
+export function quoteFromSummary(raw: unknown): GameQuote | null {
+  const body = isRec(raw) ? raw : {}
+  const pick = arr(body.pickcenter).find(isRec)
+  if (!pick) return null
+  const quote = quoteFrom({ odds: [pick] })
+  if (!quote) return null
+  if (quote.homeSpread == null && quote.total == null && quote.home.moneyline == null && quote.away.moneyline == null) return null
+  return quote
+}
+
+/** Enough of a game to open a page when it is not on the loaded scoreboard. */
+export function gameFromSummary(raw: unknown): BoardGame | null {
+  const body = isRec(raw) ? raw : {}
+  const header = isRec(body.header) ? body.header : {}
+  const comp = arr(header.competitions).find(isRec)
+  if (!comp) return null
+  const competitors = arr(comp.competitors).filter(isRec)
+  const home = sideFrom(competitors.find((c) => c.homeAway === 'home'))
+  const away = sideFrom(competitors.find((c) => c.homeAway === 'away'))
+  if (!home || !away) return null
+  const status = isRec(comp.status) ? comp.status : {}
+  const type = isRec(status.type) ? status.type : {}
+  const stateRaw = str(type.state)
+  const state: GameState = stateRaw === 'in' || stateRaw === 'post' ? stateRaw : 'pre'
+  const info = isRec(body.gameInfo) ? body.gameInfo : {}
+  const venue = isRec(info.venue) ? info.venue : isRec(comp.venue) ? comp.venue : {}
+  const address = isRec(venue.address) ? venue.address : {}
+  const cityBits = [str(address.city), str(address.country)].filter((s) => s && s !== 'USA')
+  const quote = quoteFromSummary(raw)
+  const implied = quote?.total != null && quote.homeSpread != null ? impliedTeamTotals(quote.total, quote.homeSpread) : null
+  return {
+    id: str(header.id) || str(comp.id),
+    kickoff: str(comp.date),
+    name: str(header.shortName) || `${away.abbr} @ ${home.abbr}`,
+    state,
+    detail: str(type.shortDetail) || str(type.detail) || (state === 'post' ? 'Final' : 'Scheduled'),
+    neutral: comp.neutralSite === true,
+    note: null,
+    venue: str(venue.fullName) || null,
+    city: cityBits.join(', ') || null,
+    indoor: typeof venue.indoor === 'boolean' ? venue.indoor : null,
+    broadcast: null,
+    home,
+    away,
+    quote,
+    implied,
+    leaders: [],
+  }
+}
+
 export function normalizeSummary(raw: unknown, game: BoardGame): GameContext {
   const body = isRec(raw) ? raw : {}
   const lastFive = arr(body.lastFiveGames).filter(isRec)

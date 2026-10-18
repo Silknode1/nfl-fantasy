@@ -182,13 +182,7 @@ export function App() {
       </nav>
 
       <main className="main" id="main">
-        {onBoard ? SCREENS[0].el : error ? (
-          <div className="panel"><h2>Couldn't load your league</h2><p>{error}</p></div>
-        ) : !engine ? (
-          <p className="loading">Loading your league</p>
-        ) : (
-          SCREENS.find((s) => s.id === screen)!.el
-        )}
+        {main}
       </main>
       {showRail && <StatRail />}
 
