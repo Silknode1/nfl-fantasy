@@ -3,7 +3,7 @@ import { useOptionalEngine } from '../dataContext'
 import { fetchAthlete } from '../espn/load'
 import type { AthleteCard, NewsItem } from '../espn/parse'
 import { PlayerProfile } from '../components/PlayerProfile'
-import { EmptyState, GlassCard, NewsCard, Skeleton } from '../components/glass'
+import { EmptyState, GlassCard, NewsCard, Skeleton, StatGroup } from '../components/glass'
 import { BackButton, TeamLink } from '../components/links'
 
 function EspnPlayer({ id }: { id: string }) {
@@ -58,14 +58,10 @@ function EspnPlayer({ id }: { id: string }) {
       </header>
       <p>League projections and trade surplus are not in the loaded file for this id. The lines below are what ESPN returned.</p>
       {card.stats.length > 0 ? (
-        <div className="ptiles">
-          {card.stats.slice(0, 4).map((s) => (
-            <div key={s.label} className="ptile">
-              <span className="ptile-l">{s.label}</span>
-              <b>{s.value}</b>
-            </div>
-          ))}
-        </div>
+        <StatGroup
+          label="ESPN season line"
+          items={card.stats.slice(0, 4).map((s, i) => ({ label: s.label, value: s.value, className: i === 0 ? 'hero' : undefined }))}
+        />
       ) : (
         <p>No season stat line on this pull.</p>
       )}

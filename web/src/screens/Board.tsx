@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchGameContext, fetchScoreboard } from '../board/load'
 import { useOptionalEngine } from '../dataContext'
-import { EmptyState, MatchupCard, ShortcutChip, Skeleton } from '../components/glass'
+import { EmptyState, GlassCard, MatchupCard, ShortcutChip, Skeleton, StatGroup } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 import {
   filterGames,
@@ -147,9 +147,16 @@ export function GameDetail({ game, ctx }: { game: BoardGame; ctx: GameContext | 
         <p>No line on this game. The final score is the result. A missing quote is not a number to invent.</p>
       )}
       {game.implied && (
-        <p>
-          <b>Implied totals.</b> {game.away.abbr} {game.implied.away} · {game.home.abbr} {game.implied.home}. That is (total ± spread) / 2. The favorite's number is higher. It is how many points the market has each team scoring, which is the environment of the game.
-        </p>
+        <>
+          <StatGroup
+            label="Implied totals"
+            items={[
+              { label: game.away.abbr, value: String(game.implied.away) },
+              { label: game.home.abbr, value: String(game.implied.home), className: 'hero' },
+            ]}
+          />
+          <p className="muted small">Implied total is (total ± spread) / 2. The favorite's number is higher. It is how many points the market has each team scoring, which is the environment of the game.</p>
+        </>
       )}
       {sentences.map((s) => <p key={s}>{s}</p>)}
       {script && <p>{script}</p>}
@@ -162,7 +169,7 @@ export function GameDetail({ game, ctx }: { game: BoardGame; ctx: GameContext | 
           ))}
         </p>
       )}
-      {ctx === 'loading' && <p className="loading">Injury report and last five</p>}
+      {ctx === 'loading' && <Skeleton variant="rows" label="Injury report and last five" />}
       {ctx === 'error' && <p>Injury report and recent scores did not load. The line above is still the scoreboard quote.</p>}
       {ctx && ctx !== 'loading' && ctx !== 'error' && (
         <>
@@ -336,7 +343,7 @@ export function Board() {
 
   return (
     <section className="screen board">
-      <header className="board-head">
+      <GlassCard featured lean className="board-head">
         <div>
           <h2>Week {board.week || '—'}{board.season ? ` · ${board.season}` : ''}</h2>
           <p className="muted">
@@ -348,7 +355,7 @@ export function Board() {
         <button type="button" className="ghost magnetic" onClick={refresh} disabled={refreshing}>
           {refreshing ? 'Refreshing' : 'Refresh'}
         </button>
-      </header>
+      </GlassCard>
 
       <div className="slate-stats">
         <div><small>Upcoming</small><b>{counts.pre}</b></div>

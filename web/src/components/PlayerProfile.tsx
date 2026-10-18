@@ -2,6 +2,7 @@ import type { Player, FantasyData, Pos } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { playoffSos, sosLabel } from '../engine/advice'
 import { Avatar, InjuryTag, RankDelta, fmt, pct, signed } from './bits'
+import { GlassCard, StatGroup } from './glass'
 import { BackButton, TeamLink } from './links'
 import { WeeklyChart } from './WeeklyChart'
 import { weekRange } from './RangeChart'
@@ -20,16 +21,6 @@ function stdev(xs: number[]) {
   if (xs.length < 2) return 0
   const m = xs.reduce((a, b) => a + b, 0) / xs.length
   return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / (xs.length - 1))
-}
-
-function Tile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
-  return (
-    <div className={`ptile ${tone ?? ''}`}>
-      <span className="ptile-l">{label}</span>
-      <b>{value}</b>
-      {sub && <span className="ptile-s">{sub}</span>}
-    </div>
-  )
 }
 
 /** Everything about one player on one page: scoring, this week's matchup, ownership, health and how the projection was built. */
@@ -81,24 +72,33 @@ export function PlayerProfile({ p, week, onBack, page = false }: { p: Player; we
         {page ? <BackButton fallback="#team" /> : <button className="ghost" type="button" onClick={() => onBack?.()}>Back to chart</button>}
       </header>
 
-      <div className="ptiles">
-        <Tile label={`Week ${week} expected`} value={r ? fmt(r.exp) : p.bye === Number(wk) ? 'Bye' : 'Out'} sub={r ? `${fmt(r.floor)} to ${fmt(r.ceil)} range` : undefined} tone="amber" />
-        <Tile label="Average (fPPG)" value={fmt(p.ppg)} sub={`${p.gp} games`} />
-        <Tile label="Last 3 games" value={p.last3 != null ? fmt(p.last3) : '–'} sub={p.last3 != null && p.ppg ? `${p.last3 >= p.ppg ? '+' : ''}${fmt(p.last3 - p.ppg)} vs avg` : undefined} tone={p.last3 != null && p.last3 >= p.ppg * 1.15 ? 'up' : p.last3 != null && p.last3 <= p.ppg * 0.85 ? 'down' : ''} />
-        <Tile label="Rest of season" value={fmt(lab.v(p))} sub="pts per week, byes and injuries counted" />
-      </div>
+      <StatGroup
+        label="Season snapshot"
+        items={[
+          { label: `Week ${week}`, value: r ? fmt(r.exp) : p.bye === Number(wk) ? 'Bye' : 'Out', className: 'hero', tone: 'accent', title: r ? `${fmt(r.floor)} floor to ${fmt(r.ceil)} ceiling` : undefined },
+          { label: 'fPPG', value: fmt(p.ppg), title: `${p.gp} games` },
+          { label: 'Last 3', value: p.last3 != null ? fmt(p.last3) : '–', tone: p.last3 != null && p.last3 >= p.ppg * 1.15 ? 'up' : p.last3 != null && p.last3 <= p.ppg * 0.85 ? 'down' : 'neutral', title: p.last3 != null && p.ppg ? `${p.last3 >= p.ppg ? '+' : ''}${fmt(p.last3 - p.ppg)} vs average` : undefined },
+          { label: 'ROS/wk', value: fmt(lab.v(p)), title: 'Points per week, byes and injuries counted' },
+        ]}
+      />
+      {r && <p className="muted small">This week runs {fmt(r.floor)} to {fmt(r.ceil)}. Last 3 versus his average: {p.last3 != null && p.ppg ? `${p.last3 >= p.ppg ? '+' : ''}${fmt(p.last3 - p.ppg)}` : 'not enough games'}.</p>}
 
       <WeeklyChart p={p} />
 
       <div className="pgrid">
-        <section>
-          <h4>This week's matchup</h4>
+        <GlassCard lean as="article">
+          <h3>This week's matchup</h3>
           {opp && dr ? (
-            <dl className="facts wide">
-              <dt>Opponent</dt><dd><TeamLink abbr={opp} />, {matchupWord(dr.factor)} defense against {p.pos}s</dd>
-              <dt>Points allowed</dt><dd>{dr.factor >= 1 ? '+' : ''}{((dr.factor - 1) * 100).toFixed(0)}% vs league average, {dr.rank} of {dr.of} softest</dd>
-              <dt>Playoff draw</dt><dd>{sosLabel(playoffSos(d, p))} vs average defense, Weeks {d.meta.regularWeeks + 1} to {d.meta.lastWeek}</dd>
-            </dl>
+            <>
+              <StatGroup
+                items={[
+                  { label: `vs ${opp}`, value: matchupWord(dr.factor), className: 'hero', tone: dr.factor >= 1.08 ? 'up' : dr.factor <= 0.92 ? 'down' : 'neutral' },
+                  { label: 'vs average', value: `${dr.factor >= 1 ? '+' : ''}${((dr.factor - 1) * 100).toFixed(0)}%` },
+                  { label: 'Softest', value: `${dr.rank}/${dr.of}` },
+                ]}
+              />
+              <p className="muted small"><TeamLink abbr={opp} /> is a {matchupWord(dr.factor)} defense against {p.pos}s. Playoff draw: {sosLabel(playoffSos(d, p))} vs average defense, Weeks {d.meta.regularWeeks + 1} to {d.meta.lastWeek}.</p>
+            </>
           ) : (
             <p className="muted small">{p.bye === Number(wk) ? 'Bye week.' : 'No opponent data for this week.'}</p>
           )}
@@ -117,67 +117,86 @@ export function PlayerProfile({ p, week, onBack, page = false }: { p: Player; we
               return o ? <a key={w} className={cls} href={`#team/${o}`}>{body}</a> : <div key={w} className={cls}>{body}</div>
             })}
           </div>
-          <p className="muted small">Green is a soft matchup, red a tough one. The number under each opponent is his expected points.</p>
-        </section>
+          <p className="muted small">A yellow edge is a soft matchup, a gray edge a tough one. The number under each opponent is his expected points.</p>
+        </GlassCard>
 
-        <section>
-          <h4>Owned and started</h4>
-          <dl className="facts wide">
-            <dt>ESPN rostered</dt><dd>{fmt(p.own, 0)}%{p.ownChg ? ` (${p.ownChg > 0 ? '+' : ''}${fmt(p.ownChg)} pts this week)` : ''}</dd>
-            <dt>ESPN started</dt><dd>{fmt(p.started, 0)}% of leagues start him</dd>
-            <dt>Sleeper</dt>
-            <dd>
-              {p.adds || p.drops ? `${p.adds.toLocaleString()} adds and ${p.drops.toLocaleString()} drops in 24h` : 'Not trending'}
-              {sleeperRow ? `, #${sleeperRow.rank} most ${sleeperRow.kind === 'add' ? 'added' : 'dropped'}` : ''}
-            </dd>
-            <dt>Sleeper %</dt><dd className="muted">Sleeper does not publish percent owned or started in its public feed</dd>
-          </dl>
-          <h4>Health and news</h4>
-          <dl className="facts wide">
-            <dt>Status</dt><dd>{p.inj ? <>{p.inj}{playP ? `, about ${Math.round(playP * 100)}% to play` : ''}</> : 'Healthy, no report'}</dd>
-            {p.injNote && (<><dt>Report</dt><dd>{p.injNote}</dd></>)}
-            {p.jev?.headline && (
-              <>
-                <dt>News</dt>
-                <dd>
-                  {p.jev.url
-                    ? <a href={p.jev.url} target="_blank" rel="noreferrer">{p.jev.headline}</a>
-                    : <a href="#news">{p.jev.headline}</a>}
-                  {p.jev.role !== 'none' && <> Role {p.jev.role}.</>}
-                  {p.jev.timeline && p.jev.timeline !== 'not_stated' && <> Timeline: {p.jev.timeline.replaceAll('_', ' ')}.</>}
-                  {' '}<a className="dest" href="#news">News desk</a>
-                </dd>
-              </>
-            )}
-            {!p.inj && !p.injNote && !p.jev?.headline && (<><dt>News</dt><dd className="muted">Nothing flagged</dd></>)}
-          </dl>
-        </section>
+        <GlassCard lean as="article">
+          <h3>Owned and started</h3>
+          <StatGroup
+            items={[
+              { label: 'Rostered', value: `${fmt(p.own, 0)}%`, className: 'hero', tone: (p.ownChg ?? 0) > 0 ? 'up' : 'neutral', title: p.ownChg ? `${p.ownChg > 0 ? '+' : ''}${fmt(p.ownChg)} pts this week` : 'ESPN percent rostered' },
+              { label: 'Started', value: `${fmt(p.started, 0)}%` },
+              { label: 'Adds 24h', value: (p.adds || p.drops) ? p.adds.toLocaleString() : '–' },
+            ]}
+          />
+          <p className="muted small">
+            {fmt(p.started, 0)}% of ESPN leagues start him.
+            {p.ownChg ? ` Rostered moved ${p.ownChg > 0 ? '+' : ''}${fmt(p.ownChg)} points this week.` : ''}
+            {' '}
+            {p.adds || p.drops ? `${p.adds.toLocaleString()} adds and ${p.drops.toLocaleString()} drops in 24h` : 'Not trending on Sleeper'}
+            {sleeperRow ? `, #${sleeperRow.rank} most ${sleeperRow.kind === 'add' ? 'added' : 'dropped'} in ${sleeperRow.win}` : ''}.
+            Sleeper does not publish percent owned or started in its public feed.
+          </p>
+          <h3>Health and news</h3>
+          <p>
+            {p.inj ? <>{p.inj}{playP ? `, about ${Math.round(playP * 100)}% to play` : ''}</> : 'Healthy, no report'}
+            {p.injNote ? `. ${p.injNote}` : ''}
+          </p>
+          {p.jev?.headline ? (
+            <p>
+              {p.jev.url
+                ? <a href={p.jev.url} target="_blank" rel="noreferrer">{p.jev.headline}</a>
+                : <a href="#news">{p.jev.headline}</a>}
+              {p.jev.role !== 'none' && <> Role {p.jev.role}.</>}
+              {p.jev.timeline && p.jev.timeline !== 'not_stated' && <> Timeline: {p.jev.timeline.replaceAll('_', ' ')}.</>}
+              {' '}<a className="dest" href="#news">News desk</a>
+            </p>
+          ) : !p.inj && !p.injNote ? <p className="muted small">Nothing flagged.</p> : null}
+        </GlassCard>
 
-        <section>
-          <h4>How the projection is built</h4>
-          <dl className="facts wide">
-            <dt>Pace when active</dt><dd>{fmt(p.rate)} pts/g rest of season: {fmt(parts.season)} scored, blended with ESPN's {fmt(parts.espn)} per game{parts.k != null ? ` (${parts.k} games of ESPN prior for a ${p.pos})` : ''}, trend ×{parts.trend.toFixed(2)}{parts.jev !== 1 ? `, news ×${parts.jev.toFixed(2)}` : ''}. This week's matchup is not carried into later weeks.</dd>
-            <dt>This week</dt><dd>{fmt(p.proj[wk] ?? 0)} expected{p.projIf && p.projIf[wk] !== p.proj[wk] ? `, ${fmt(p.projIf[wk] ?? 0)} if he plays` : ''}{parts.week != null ? `. This week's ESPN blend is ${fmt(parts.week)}` : ''}{p.espnWeek != null && p.espnWeek > 0.3 ? '. ESPN already priced the opponent, so the defense factor is not applied again.' : ''}</dd>
-            <dt>Trade value</dt><dd>{signed(tv.surplus)} pts/wk above a replacement {p.pos} ({fmt(tv.replacement)}). His own pace is {fmt(tv.production)}, from next week through week {d.meta.lastWeek}, playoff weeks ×1.5. {fmt(lab.v(p))} is that pace before subtracting replacement.</dd>
-            <dt>vs ESPN</dt><dd>{p.espnWeek !== null ? <>ESPN has {fmt(p.espnWeek)}{edge !== null ? `, we are ${edge >= 0 ? '+' : ''}${fmt(edge)}` : ''}</> : 'No ESPN weekly number'}</dd>
-            <dt>Playoffs</dt><dd>{playoffPts > 0 ? `${fmt(playoffPts)} projected points across Weeks ${d.meta.regularWeeks + 1} to ${d.meta.lastWeek}` : 'No playoff weeks left to project'}</dd>
-          </dl>
-        </section>
+        <GlassCard lean as="article">
+          <h3>How the projection is built</h3>
+          <StatGroup
+            items={[
+              { label: 'This week', value: fmt(p.proj[wk] ?? 0), className: 'hero' },
+              { label: 'Pace', value: fmt(p.rate) },
+              { label: 'Trade', value: signed(tv.surplus), tone: tv.surplus > 0 ? 'up' : tv.surplus < 0 ? 'down' : 'neutral' },
+              { label: 'Playoffs', value: playoffPts > 0 ? fmt(playoffPts) : '–' },
+            ]}
+          />
+          <p className="muted small">
+            {fmt(p.rate)} pts/g rest of season: {fmt(parts.season)} scored, blended with ESPN's {fmt(parts.espn)} per game{parts.k != null ? ` (${parts.k} games of ESPN prior for a ${p.pos})` : ''}, trend ×{parts.trend.toFixed(2)}{parts.jev !== 1 ? `, news ×${parts.jev.toFixed(2)}` : ''}. This week's matchup is not carried into later weeks.
+          </p>
+          <p className="muted small">
+            {fmt(p.proj[wk] ?? 0)} expected{p.projIf && p.projIf[wk] !== p.proj[wk] ? `, ${fmt(p.projIf[wk] ?? 0)} if he plays` : ''}{parts.week != null ? `. This week's ESPN blend is ${fmt(parts.week)}` : ''}{p.espnWeek != null && p.espnWeek > 0.3 ? '. ESPN already priced the opponent, so the defense factor is not applied again.' : ''}
+          </p>
+          <p className="muted small">
+            Trade value {signed(tv.surplus)} pts/wk above a replacement {p.pos} ({fmt(tv.replacement)}). His own pace is {fmt(tv.production)}, from next week through week {d.meta.lastWeek}, playoff weeks ×1.5. {fmt(lab.v(p))} is that pace before subtracting replacement.
+            {p.espnWeek !== null ? <> ESPN has {fmt(p.espnWeek)} this week{edge !== null ? `, we are ${edge >= 0 ? '+' : ''}${fmt(edge)}` : ''}.</> : ' No ESPN weekly number.'}
+            {' '}
+            {playoffPts > 0 ? `${fmt(playoffPts)} projected points across Weeks ${d.meta.regularWeeks + 1} to ${d.meta.lastWeek}.` : 'No playoff weeks left to project.'}
+          </p>
+        </GlassCard>
 
-        <section>
-          <h4>Consistency and role</h4>
-          <dl className="facts wide">
-            <dt>Best / worst</dt><dd>{best && worst ? `${fmt(best.v)} (Wk ${best.w}) / ${fmt(worst.v)} (Wk ${worst.w})` : '–'}</dd>
-            <dt>Week-to-week swing</dt><dd>{vals.length >= 2 ? `±${fmt(swing)} pts (${pct(p.ppg ? swing / p.ppg : 0)} of average)` : 'Needs two games'}</dd>
-            <dt>Beat his average</dt><dd>{vals.length ? `${beat} of ${vals.length} games` : '–'}</dd>
-            <dt>Usage</dt>
-            <dd>
-              {!u ? 'No snap or target data yet' : p.pos === 'QB'
-                ? `${fmt(u.passYdsPg, 0)} pass yds/g, ${fmt(u.rushYdsPg, 0)} rush yds/g, ${u.tdTotal} TDs`
-                : `${p.pos === 'RB' ? `${fmt(u.carPg)} carries, ` : ''}${fmt(u.tgtPg)} targets/g${u.tgtShare ? `, ${fmt(u.tgtShare * 100, 0)}% target share` : ''}${u.snapPct ? `, ${fmt(u.snapPct * 100, 0)}% snaps` : ''}, ${u.tdTotal} TDs`}
-            </dd>
-          </dl>
-        </section>
+        <GlassCard lean as="article">
+          <h3>Consistency and role</h3>
+          <StatGroup
+            items={[
+              { label: 'Best week', value: best ? fmt(best.v) : '–', className: 'hero', title: best ? `Week ${best.w}` : undefined },
+              { label: 'Worst', value: worst ? fmt(worst.v) : '–', title: worst ? `Week ${worst.w}` : undefined },
+              { label: 'Swing', value: vals.length >= 2 ? `±${fmt(swing)}` : '–' },
+              { label: 'Beat avg', value: vals.length ? `${beat}/${vals.length}` : '–' },
+            ]}
+          />
+          <p className="muted small">
+            {best && worst ? `Best ${fmt(best.v)} in Week ${best.w}, worst ${fmt(worst.v)} in Week ${worst.w}. ` : ''}
+            {vals.length >= 2 ? `Week-to-week swing is ±${fmt(swing)} points (${pct(p.ppg ? swing / p.ppg : 0)} of average). ` : 'Needs two games to measure the swing. '}
+            {vals.length ? `He beat his average in ${beat} of ${vals.length} games. ` : ''}
+            {!u ? 'No snap or target data yet.' : p.pos === 'QB'
+              ? `${fmt(u.passYdsPg, 0)} pass yards per game, ${fmt(u.rushYdsPg, 0)} rush yards per game, ${u.tdTotal} touchdowns.`
+              : `${p.pos === 'RB' ? `${fmt(u.carPg)} carries, ` : ''}${fmt(u.tgtPg)} targets per game${u.tgtShare ? `, ${fmt(u.tgtShare * 100, 0)}% target share` : ''}${u.snapPct ? `, ${fmt(u.snapPct * 100, 0)}% snaps` : ''}, ${u.tdTotal} touchdowns.`}
+          </p>
+        </GlassCard>
       </div>
     </div>
   )

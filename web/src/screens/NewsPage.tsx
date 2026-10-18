@@ -12,12 +12,13 @@ function when(iso: string | null): string | null {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-function Item({ item }: { item: NewsItem }) {
+function Item({ item, featured = false }: { item: NewsItem; featured?: boolean }) {
   const stamp = when(item.published)
   const nextPlayer = item.playerId
   const nextTeam = item.teams[0]
   return (
     <NewsCard
+      featured={featured}
       kicker={`${item.source === 'jev' ? 'League news' : item.source === 'scoreboard' ? 'Scoreboard' : 'ESPN'}${stamp ? ` · ${stamp}` : ''}`}
       title={
         item.url ? (
@@ -84,7 +85,7 @@ export function NewsPage() {
           <p className="news-next"><a className="dest" href="#games">Open the week</a></p>
         </EmptyState>
       )}
-      {items?.map((item) => <Item key={item.id} item={item} />)}
+      {items?.map((item, i) => <Item key={item.id} item={item} featured={i === 0} />)}
     </section>
   )
 }

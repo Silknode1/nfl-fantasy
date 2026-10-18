@@ -4,7 +4,7 @@ import { fetchClub, fetchClubStats, fetchLastGame, fetchRoster } from '../espn/l
 import { statLineEmpty, type ClubGame, type ClubProfile, type ClubStats, type RosterPlayer } from '../espn/parse'
 import type { Player } from '../types'
 import { InjuryTag, fmt, signed } from '../components/bits'
-import { EmptyState, GlassCard, Skeleton } from '../components/glass'
+import { EmptyState, GlassCard, Skeleton, StatGroup } from '../components/glass'
 import { BackButton, PlayerLink, TeamLink } from '../components/links'
 
 function shown(n: number | null, digits = 1): string | null {
@@ -43,17 +43,22 @@ function FantasySkill({ players }: { players: Player[] }) {
         const tv = engine.tradeOf(p)
         const opp = engine.d.nflOpp[p.nfl]?.[week]
         return (
-          <article key={p.id} className="skill-row">
+          <article key={p.id} className="skill-row lift">
             <div>
               <PlayerLink id={p.id} name={p.name} />
               <p className="pmeta">
                 <span>{p.pos}</span>
                 <InjuryTag p={p} />
-                <span>Week {engine.d.meta.week} {fmt(p.proj[week] ?? 0)}</span>
-                <span>Trade {signed(tv.surplus)}</span>
                 {opp && <TeamLink abbr={opp}>{`vs ${opp}`}</TeamLink>}
               </p>
             </div>
+            <StatGroup
+              className="player-stats"
+              items={[
+                { label: `Week ${engine.d.meta.week}`, value: fmt(p.proj[week] ?? 0), className: 'hero' },
+                { label: 'Trade', value: signed(tv.surplus), tone: tv.surplus > 0 ? 'up' : tv.surplus < 0 ? 'down' : 'neutral' },
+              ]}
+            />
           </article>
         )
       })}
@@ -155,14 +160,10 @@ export function TeamPage({ abbr }: { abbr: string }) {
           <BackButton fallback="#games" />
         </header>
         {tiles.length > 0 ? (
-          <div className="ptiles">
-            {tiles.map((t) => (
-              <div key={t.label} className="ptile">
-                <span className="ptile-l">{t.label}</span>
-                <b>{t.value}</b>
-              </div>
-            ))}
-          </div>
+          <StatGroup
+            label="Scoring and yards"
+            items={tiles.map((t, i) => ({ label: t.label, value: t.value, className: i === 0 ? 'hero' : undefined }))}
+          />
         ) : (
           <p>{statsNote ?? 'Scoring and yards are still loading.'}</p>
         )}
@@ -190,7 +191,7 @@ export function TeamPage({ abbr }: { abbr: string }) {
             {roster.length === 0 && <p>The roster did not load. <a className="dest" href="#news">Check the news</a>.</p>}
             <div className="skill-list">
               {roster.slice(0, 16).map((p) => (
-                <article key={p.id} className="skill-row">
+                <article key={p.id} className="skill-row lift">
                   <div>
                     <PlayerLink id={p.id} name={p.name} />
                     <p className="pmeta">

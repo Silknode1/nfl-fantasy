@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Player } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useFocus, useNumbered } from '../focus'
-import { RangeChart } from '../components/RangeChart'
+import { RangeChart, weekRange } from '../components/RangeChart'
 import { PlayerProfile } from '../components/PlayerProfile'
 import { weekAdvice } from '../engine/advice'
 import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, signed } from '../components/bits'
@@ -11,6 +11,27 @@ import { PlayerLink, TeamLink } from '../components/links'
 import { hot } from '../components/bits'
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX']
+
+function FloorSummary({ roster, week }: { roster: Player[]; week: number }) {
+  const rows = roster
+    .map((p) => ({ p, r: weekRange(p, week) }))
+    .filter((x): x is { p: Player; r: { floor: number; exp: number; ceil: number } } => x.r != null)
+  if (!rows.length) return <p className="muted small">No one on this roster is projected to play that week.</p>
+  const ceil = rows.reduce((a, b) => (b.r.ceil > a.r.ceil ? b : a))
+  const exp = rows.reduce((a, b) => (b.r.exp > a.r.exp ? b : a))
+  const floor = rows.reduce((a, b) => (b.r.floor < a.r.floor ? b : a))
+  const short = (name: string) => name.split(' ').slice(-1)[0] ?? name
+  return (
+    <StatGroup
+      label="Week range"
+      items={[
+        { label: `Ceiling · ${short(ceil.p.name)}`, value: fmt(ceil.r.ceil), tone: 'up', className: 'hero', title: `${ceil.p.name}, 90th percentile week` },
+        { label: `Expected · ${short(exp.p.name)}`, value: fmt(exp.r.exp), tone: 'accent', title: `${exp.p.name}, projected points` },
+        { label: `Floor · ${short(floor.p.name)}`, value: fmt(floor.r.floor), title: `${floor.p.name}, 10th percentile week` },
+      ]}
+    />
+  )
+}
 
 function PlayerRow({ p, slot }: { p: Player; slot: string }) {
   const { d, lab, tradeOf } = useEngineCtx()
@@ -32,15 +53,14 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
           <InjuryTag p={p} />
           <PlayChance p={p} />
           <RankDelta p={p} />
-          <span className="m-only">fPPG {fmt(p.ppg)} · L3 {p.last3 != null ? fmt(p.last3) : '–'} · trade {signed(tv.surplus)}</span>
         </div>
       </div>
       <StatGroup
         className="player-stats"
         items={[
+          { key: 'wk', label: p.locked ? 'Final' : `Week ${d.meta.week}`, value: onBye ? 'Bye' : out ? 'Out' : fmt(wk), className: 'wk hero', title: p.locked ? 'Final for this week' : 'Projected this week' },
           { key: 'fppg', label: 'fPPG', value: p.gp ? fmt(p.ppg) : '–', className: 'fppg', title: 'Fantasy points per game this season (half PPR)' },
           { key: 'l3', label: 'Last 3', value: p.last3 != null ? fmt(p.last3) : '–', className: 'l3', tone: heat === 'up' ? 'up' : heat === 'down' ? 'down' : 'neutral', title: 'Average of his last 3 games: how hot or cold he is' },
-          { key: 'wk', label: p.locked ? 'Final' : `Wk ${d.meta.week}`, value: onBye ? 'Bye' : out ? 'Out' : fmt(wk), className: 'wk', title: p.locked ? 'Final for this week' : 'Projected this week' },
           { key: 'ros', label: 'ROS/wk', value: fmt(lab.v(p)), className: 'ros', title: 'Weighted points per week from next week on. Playoff weeks count 1.5×.' },
           { key: 'trade', label: 'Trade', value: signed(tv.surplus), className: 'trade', tone: tv.surplus > 0 ? 'up' : tv.surplus < 0 ? 'down' : 'neutral', title: `Trade value: ${fmt(tv.production)} pts/wk minus the replacement ${p.pos} at ${fmt(tv.replacement)} (QB12, RB30, WR30, TE12). Playoff weeks count 1.5×. Bye and injury weeks are already in the projection.` },
         ]}
@@ -112,6 +132,7 @@ export function Roster() {
         ) : (
           <>
             <p className="muted small">Each player's projected half-PPR points: the dot is the expected score, the bar runs from a bad week (10th percentile) to a big week (90th percentile). Click a player to open his profile.</p>
+            <FloorSummary roster={lab.rosters.get(rangeTeam) ?? []} week={rangeWeek} />
             <RangeChart roster={lab.rosters.get(rangeTeam) ?? []} week={rangeWeek} onPick={pick} />
           </>
         )}

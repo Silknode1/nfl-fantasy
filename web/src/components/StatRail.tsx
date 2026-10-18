@@ -3,7 +3,7 @@ import { useFocus } from '../focus'
 import { useEngineCtx } from '../dataContext'
 import { playoffSos, sosLabel } from '../engine/advice'
 import { Avatar, InjuryTag, RankDelta, fmt, signed } from './bits'
-import { EmptyState } from './glass'
+import { EmptyState, StatGroup } from './glass'
 import { PlayerLink, TeamLink } from './links'
 import { WeeklyChart } from './WeeklyChart'
 
@@ -43,6 +43,14 @@ export function StatRail() {
             </div>
             <button className="ghost" onClick={() => setPinned(null)} aria-label="Close details">Close</button>
           </header>
+          <StatGroup
+            label="Pinned snapshot"
+            items={[
+              { label: `Week ${week}`, value: fmt(pinned.proj[String(week)] ?? 0), className: 'hero' },
+              { label: 'fPPG', value: fmt(pinned.ppg) },
+              { label: 'Trade', value: signed(tradeOf(pinned).surplus), tone: tradeOf(pinned).surplus > 0 ? 'up' : tradeOf(pinned).surplus < 0 ? 'down' : 'neutral' },
+            ]}
+          />
           <WeeklyChart p={pinned} />
           <dl className="facts">
             <dt>Scored</dt><dd>{fmt(pinned.ppg)} pts/g over {pinned.gp} games (fPPG); last 3 games {pinned.last3 != null ? fmt(pinned.last3) : '–'}</dd>
