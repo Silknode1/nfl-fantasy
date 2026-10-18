@@ -16,7 +16,6 @@ import { Board } from './screens/Board'
 import { pct } from './components/bits'
 
 const SCREENS = [
-  { id: 'games', label: 'Games', el: <Board /> },
   { id: 'team', label: 'My team', el: <Roster /> },
   { id: 'trades', label: 'Trades', el: <Trades /> },
   { id: 'waivers', label: 'Waivers', el: <Waivers /> },
@@ -24,14 +23,15 @@ const SCREENS = [
   { id: 'league', label: 'League', el: <League /> },
   { id: 'espn', label: 'Vs ESPN', el: <VsEspn /> },
   { id: 'plan', label: 'Season plan', el: <Plan /> },
+  { id: 'games', label: 'Games', el: <Board /> },
 ] as const
 
 type ScreenId = (typeof SCREENS)[number]['id']
 
 function readHash(): ScreenId {
   const h = window.location.hash.replace('#', '')
-  if (!h) return 'games'
-  return (SCREENS.find((s) => s.id === h)?.id ?? 'games') as ScreenId
+  if (!h) return 'team'
+  return (SCREENS.find((s) => s.id === h)?.id ?? 'team') as ScreenId
 }
 
 type ProjMode = 'expected' | 'plays'
@@ -101,15 +101,21 @@ export function App() {
       }
     : null
 
+  const gamesEl = SCREENS.find((s) => s.id === 'games')!.el
   const shell = (
     <div className={showRail ? 'app' : 'app no-rail'}>
+      <div className="atmosphere" aria-hidden="true">
+        <span className="orb orb-a" />
+        <span className="orb orb-b" />
+      </div>
       <header className="masthead">
         {desk ? (
           <>
             <div className="team">
               <h1>{desk.me.name}</h1>
               <p className="sub">
-                {engine!.d.meta.leagueName}, {engine!.d.meta.scoring}, Week {engine!.d.meta.week} · New model
+                {engine!.d.meta.leagueName}, {engine!.d.meta.scoring}, Week {engine!.d.meta.week}
+                <span className="model-tag">New model</span>
               </p>
             </div>
             <dl className="odds">
@@ -122,8 +128,8 @@ export function App() {
           </>
         ) : (
           <div className="team">
-            <h1>NFL board · New model</h1>
-            <p className="sub">This week's games, the spread, and the total</p>
+            <h1>{onBoard ? 'Games' : 'My team'}</h1>
+            <p className="sub">{error ? 'League file not loaded' : 'Loading the desk'}</p>
           </div>
         )}
       </header>
@@ -149,7 +155,7 @@ export function App() {
       </nav>
 
       <main className="main" id="main">
-        {onBoard ? SCREENS[0].el : error ? (
+        {onBoard ? gamesEl : error ? (
           <div className="panel"><h2>Couldn't load your league</h2><p>{error}</p></div>
         ) : !engine ? (
           <p className="loading">Loading your league</p>
