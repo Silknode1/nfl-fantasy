@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FantasyData } from './types'
+import type { FantasyData, Player } from './types'
 import { TradeLab, type TradeBoard, type TradeEval } from './engine/trade'
 import { leagueRanks, type Ranks } from './engine/lineup'
+import { tradeTable, type TradeValue } from './engine/value'
 import { makeNoise, simulate, type Noise, type SimResult } from './engine/sim'
 import { rankWaivers, type WaiverPick } from './engine/waivers'
 import { buildPlan, type Plan } from './engine/advice'
@@ -18,6 +19,8 @@ export interface Engine {
   progress: number // deals checked so far
   plan: Plan | null
   deepen: (ev: TradeEval) => TradeEval
+  /** Rest-of-season points per week above the replacement player at his position. */
+  tradeOf: (p: Player) => TradeValue
 }
 
 const keyOf = (ev: TradeEval) => `${ev.trade.partnerId}|${ev.trade.give.map((p) => p.id).join(',')}|${ev.trade.get.map((p) => p.id).join(',')}`
@@ -34,7 +37,10 @@ export function useEngine(d: FantasyData | null): Engine | null {
     const me = d.teams.find((t) => t.id === d.meta.myTeamId)!
     const waivers = rankWaivers(lab, ranks, me.faabLeft)
     const deepen = (ev: TradeEval) => ({ ...lab.deepen(ev, noise, sim, ranks), simpler: ev.simpler })
-    return { d, lab, ranks, noise, sim, waivers, deepen }
+    const values = tradeTable(d.players, d.meta.week + 1, d.meta.regularWeeks, d.meta.lastWeek)
+    const empty: TradeValue = { production: 0, replacement: 0, surplus: 0 }
+    const tradeOf = (p: Player) => values.get(p.id) ?? empty
+    return { d, lab, ranks, noise, sim, waivers, deepen, tradeOf }
   }, [d])
 
   const [board, setBoard] = useState<TradeBoard | null>(null)

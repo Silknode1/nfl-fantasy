@@ -7,7 +7,7 @@ import { tradeSummary, verdict, ordinal } from '../engine/summary'
 import { Avatar, GradeMark, InjuryTag, fmt, pct, signed } from '../components/bits'
 
 function Side({ title, players }: { title: string; players: Player[] }) {
-  const { lab } = useEngineCtx()
+  const { lab, tradeOf } = useEngineCtx()
   return (
     <div className="side">
       <h3>{title}</h3>
@@ -17,7 +17,7 @@ function Side({ title, players }: { title: string; players: Player[] }) {
           <div>
             <div className="pname">{p.name} <InjuryTag p={p} /></div>
             <div className="pmeta"><span>{p.pos}</span><span>{p.nfl}</span></div>
-            <div className="pmeta"><span><b>{fmt(p.ppg)}</b> pts/g</span><span><b>{fmt(lab.v(p))}</b> ROS/wk</span></div>
+            <div className="pmeta"><span><b>{fmt(p.ppg)}</b> pts/g</span><span><b>{fmt(lab.v(p))}</b> ROS/wk</span><span><b>{signed(tradeOf(p).surplus)}</b> trade</span></div>
           </div>
         </div>
       ))}

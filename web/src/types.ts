@@ -52,7 +52,7 @@ export interface Player {
   drops: number
   jev: JevSignal | null
   rate: number
-  rateParts: { espn: number; season: number; trend: number; jev: number }
+  rateParts: { espn: number; season: number; trend: number; jev: number; week?: number; k?: number }
   proj: Record<string, number>
   /** Points if he plays (chance he plays not applied). */
   projIf?: Record<string, number>
