@@ -16,7 +16,7 @@ import { Board } from './screens/Board'
 import { NewsPage } from './screens/NewsPage'
 import { PlayerPage } from './screens/PlayerPage'
 import { TeamPage } from './screens/TeamPage'
-import { GamePage } from './screens/GamePage'
+import { ClipProvider } from './clip'
 import { pct } from './components/bits'
 import { EmptyState, ShortcutChip, Skeleton, StatGroup, useMagneticHover } from './components/glass'
 import { LoreLine, QuietDot, useDeskLore } from './components/Lore'
@@ -161,7 +161,7 @@ export function App() {
   const lore = useDeskLore(route.kind, route.kind === 'nfl' ? route.abbr : route.kind === 'screen' ? route.id : route.id, data, tradeIds)
   const onBoard = current === 'games'
   const bareTitle = route.kind === 'nfl' ? route.abbr : route.kind === 'player' ? 'Player' : route.kind === 'game' ? 'Game' : route.id === 'news' ? 'News' : route.id === 'games' ? 'Games' : 'My team'
-  const showRail = Boolean(engine) && route.kind === 'screen' && route.id !== 'games' && route.id !== 'news'
+  const showRail = Boolean(engine) && (route.kind === 'game' || (route.kind === 'screen' && route.id !== 'news'))
   const desk = engine
     ? {
         me: engine.d.teams.find((t) => t.id === engine.d.meta.myTeamId)!,
@@ -172,8 +172,8 @@ export function App() {
   let main: JSX.Element
   if (route.kind === 'player') main = <PlayerPage id={route.id} />
   else if (route.kind === 'nfl') main = <TeamPage abbr={route.abbr} />
-  else if (route.kind === 'game') main = <GamePage id={route.id} />
-  else if (route.id === 'games') main = <Board />
+  else if (route.kind === 'game') main = <Board focusId={route.id} />
+  else if (route.id === 'games') main = <Board focusId={null} />
   else if (route.id === 'news') main = <NewsPage />
   else if (error) main = (
     <EmptyState title="Couldn't load your league" body={error}>
@@ -184,7 +184,7 @@ export function App() {
   else main = LEAGUE_SCREENS[route.id] ?? <Roster />
 
   const shell = (
-    <div className={showRail ? 'app' : 'app no-rail'}>
+    <div className={`${showRail ? 'app' : 'app no-rail'}${onBoard ? ' games-desk' : ''}`}>
       <div className="atmosphere" aria-hidden="true">
         <span className="orb orb-a" />
         <span className="orb orb-b" />
@@ -280,10 +280,12 @@ export function App() {
     </div>
   )
 
-  if (!engine) return shell
+  if (!engine) return <ClipProvider>{shell}</ClipProvider>
   return (
-    <DataProvider engine={engine}>
-      <FocusProvider>{shell}</FocusProvider>
-    </DataProvider>
+    <ClipProvider>
+      <DataProvider engine={engine}>
+        <FocusProvider>{shell}</FocusProvider>
+      </DataProvider>
+    </ClipProvider>
   )
 }

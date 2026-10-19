@@ -54,6 +54,13 @@ export interface Leader {
   teamId: string
 }
 
+/** Ball, red zone, and clock, only from an ESPN situation object. */
+export interface GameSituation {
+  possessionId: string | null
+  redZone: boolean | null
+  clock: string | null
+}
+
 export interface BoardGame {
   id: string
   kickoff: string
@@ -72,6 +79,7 @@ export interface BoardGame {
   /** (total ∓ home spread) / 2, rounded to the half point. */
   implied: { home: number; away: number } | null
   leaders: Leader[]
+  situation: GameSituation | null
 }
 
 export interface ByeTeam {
@@ -88,12 +96,15 @@ export interface Board {
 }
 
 export interface RecentGame {
+  id: string | null
   week: number | null
   result: string
   opponent: string
   atVs: string
   pointsFor: number | null
   pointsAgainst: number | null
+  /** Headline ESPN already stored on this result, if the payload had one. */
+  headline: string | null
 }
 
 export interface InjuryRow {
@@ -327,6 +338,17 @@ function quoteFrom(raw: unknown): GameQuote | null {
   }
 }
 
+export function situationFrom(raw: unknown): GameSituation | null {
+  if (!isRec(raw)) return null
+  const possessionId = str(raw.possession) || null
+  const redZone = typeof raw.isRedZone === 'boolean' ? raw.isRedZone : typeof raw.redZone === 'boolean' ? raw.redZone : null
+  const clockObj = isRec(raw.clock) ? str(raw.clock.displayValue) : ''
+  const last = isRec(raw.lastPlay) && isRec(raw.lastPlay.clock) ? str(raw.lastPlay.clock.displayValue) : ''
+  const clock = str(raw.displayClock) || (typeof raw.clock === 'string' ? raw.clock : '') || clockObj || last || null
+  if (!possessionId && redZone == null && !clock) return null
+  return { possessionId, redZone, clock }
+}
+
 function leadersFrom(raw: unknown): Leader[] {
   const out: Leader[] = []
   for (const block of arr(isRec(raw) ? raw.leaders : null)) {
@@ -384,6 +406,7 @@ function gameFrom(raw: unknown): BoardGame | null {
     quote,
     implied,
     leaders: leadersFrom(comp),
+    situation: situationFrom(comp.situation),
   }
 }
 
@@ -474,13 +497,16 @@ function recentFrom(events: unknown, teamId: string): RecentGame[] {
       const homeId = str(ev.homeTeamId)
       const forScore = num(homeId === teamId ? ev.homeTeamScore : ev.awayTeamScore)
       const against = num(homeId === teamId ? ev.awayTeamScore : ev.homeTeamScore)
+      const headline = str(ev.headline) || str(ev.shortLinkText) || str(ev.shortHeadline) || null
       return {
+        id: str(ev.id) || null,
         week: num(ev.week),
         result: str(ev.gameResult),
         opponent: str(opp.abbreviation) || str(opp.displayName) || 'OPP',
         atVs: str(ev.atVs),
         pointsFor: forScore,
         pointsAgainst: against,
+        headline,
       }
     })
 }
