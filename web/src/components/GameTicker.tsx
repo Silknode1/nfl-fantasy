@@ -1,24 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
 import type { BoardGame } from '../board/normalize'
-import { bubbleFacts, rowSpeed, scrimFor, shouldAnimate, tickerRows, trackOffset, type TickDirection } from '../board/ticker'
+import { bubbleBackground, bubbleFacts, keyActivatesTicker, rowSpeed, scrimFor, shouldAnimate, tickerBand, tickerRows, tickerTargetFromNode, trackOffset, type TickDirection } from '../board/ticker'
 
 function Bubble({
   game,
+  games,
   yours,
   selected,
   dim,
   tabbable,
   onSelect,
+  onHold,
 }: {
   game: BoardGame
+  games: BoardGame[]
   yours: boolean
   selected: boolean
   dim: boolean
   tabbable: boolean
   onSelect: (id: string) => void
+  onHold: () => void
 }) {
   const facts = bubbleFacts(game)
   const scrim = scrimFor([game.away.color, game.home.color])
+  const down = useRef<{ x: number; y: number; id: string } | null>(null)
+  const dragged = useRef(false)
   const label = [
     `${game.away.name} ${facts.middle} ${game.home.name}`,
     facts.spread,
@@ -26,6 +32,10 @@ function Bubble({
     yours ? 'Your player is in this game' : '',
     selected ? 'Selected' : '',
   ].filter(Boolean).join('. ')
+  const activate = (raw: string | undefined) => {
+    const id = tickerTargetFromNode(raw, games)
+    if (id) onSelect(id)
+  }
   return (
     <button
       type="button"
@@ -34,10 +44,34 @@ function Bubble({
       tabIndex={tabbable ? 0 : -1}
       aria-current={selected ? 'true' : undefined}
       aria-label={label}
-      style={{
-        backgroundImage: `linear-gradient(rgba(0,0,0,${scrim}), rgba(0,0,0,${scrim})), linear-gradient(90deg, ${game.away.color}, ${game.home.color})`,
+      style={{ backgroundImage: bubbleBackground(game.away.color, game.home.color, scrim) }}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return
+        onHold()
+        try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* pointer already gone */ }
+        down.current = { x: event.clientX, y: event.clientY, id: event.currentTarget.dataset.gameId ?? '' }
       }}
-      onClick={() => onSelect(game.id)}
+      onPointerUp={(event) => {
+        const start = down.current
+        down.current = null
+        if (!start) return
+        const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10
+        dragged.current = moved
+        if (moved) return
+        activate(event.currentTarget.dataset.gameId || start.id)
+      }}
+      onClick={(event) => {
+        if (dragged.current) {
+          dragged.current = false
+          return
+        }
+        activate(event.currentTarget.dataset.gameId)
+      }}
+      onKeyDown={(event) => {
+        if (!keyActivatesTicker(event.key)) return
+        event.preventDefault()
+        activate(event.currentTarget.dataset.gameId)
+      }}
     >
       {yours && <i className="roster-mark" title="Your player is in this game" />}
       <span className="tick-line">
@@ -102,16 +136,9 @@ function Row({
       if (trackEl && vpEl) {
         if (ready) {
           vpEl.classList.add('is-running')
-          // Keep the window to one copy so the loop does not sit a second slate beside the first.
-          if (span < vp) {
-            vpEl.style.flex = '0 0 auto'
-            vpEl.style.width = `${span}px`
-          }
           trackEl.style.transform = `translate3d(${trackOffset(direction, travelled.current, span)}px,0,0)`
         } else {
           vpEl.classList.remove('is-running')
-          vpEl.style.flex = ''
-          vpEl.style.width = ''
           trackEl.style.transform = 'none'
           if (!animate) travelled.current = 0
         }
@@ -149,11 +176,13 @@ function Row({
     <Bubble
       key={game.id}
       game={game}
+      games={games}
       yours={yours(game)}
       selected={game.id === selectedId}
       dim={marked && !matches.has(game.id) && game.id !== selectedId}
       tabbable={tabbable}
       onSelect={onSelect}
+      onHold={() => { paused.current = true }}
     />
   ))
 
@@ -218,9 +247,10 @@ export function GameTicker({
   onSelect: (id: string) => void
 }) {
   const rows = tickerRows(games)
+  const band = tickerBand(games.length)
   if (!rows.length) return null
   return (
-    <div className="ticker" data-ticker-rows={rows.length} aria-label="This week's games">
+    <div className="ticker" data-ticker-rows={band.rows} data-full-width={band.fullWidth ? 'true' : 'false'} aria-label="This week's games">
       {rows.map((row) => (
         <Row
           key={row.index}
