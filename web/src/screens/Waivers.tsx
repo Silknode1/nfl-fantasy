@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Pos } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useNumbered } from '../focus'
+import { sortWaivers, type WaiverSort } from '../engine/waivers'
 import { Avatar, InjuryTag, Meter, RankDelta, fmt, signed } from '../components/bits'
 import { EmptyState, GlassCard, StatGroup } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
@@ -12,15 +13,27 @@ const shortName = (name: string) => {
   return parts[parts.length - 1] || name
 }
 
+const SORTS: { id: WaiverSort; label: string }[] = [
+  { id: 'position', label: 'Position' },
+  { id: 'delta', label: 'Lineup Δ' },
+  { id: 'hype', label: 'Hype' },
+  { id: 'fit', label: 'Fit' },
+  { id: 'role', label: 'Role' },
+]
+
 export function Waivers() {
   const { d, waivers, ranks } = useEngineCtx()
   const [pos, setPos] = useState<Pos | 'ALL'>('ALL')
+  const [sort, setSort] = useState<WaiverSort>('position')
   const me = d.teams.find((t) => t.id === d.meta.myTeamId)!
-  const list = waivers.filter((w) => pos === 'ALL' || w.player.pos === pos).slice(0, 15)
+  const list = useMemo(
+    () => sortWaivers(waivers, sort).filter((w) => pos === 'ALL' || w.player.pos === pos).slice(0, 15),
+    [waivers, sort, pos],
+  )
   useNumbered(list.map((w) => w.player))
   const weak = (['QB', 'RB', 'WR', 'TE'] as Pos[]).filter((k) => ranks[d.meta.myTeamId][k].rank >= 7)
   return (
-    <div className="screen">
+    <div className="screen" id="waivers">
       <GlassCard featured lean>
         <div className="panel-head">
           <h2>Waiver wire</h2>
@@ -32,6 +45,13 @@ export function Waivers() {
             ))}
           </div>
         </div>
+        <div className="seg seg-wrap" role="group" aria-label="Sort the board">
+          {SORTS.map((s) => (
+            <button key={s.id} className={sort === s.id ? 'on' : ''} onClick={() => setSort(s.id)} aria-pressed={sort === s.id}>
+              {s.label}
+            </button>
+          ))}
+        </div>
         <StatGroup
           label="Your waiver budget"
           items={[
@@ -41,8 +61,11 @@ export function Waivers() {
           ]}
         />
         <p className="muted small">
-          Ranked for your roster: fit (40%), hype from Sleeper adds and ESPN rostered change (35%), rising role (15%), raw value (10%). Your weakest groups:{' '}
-          {weak.map((k) => `${k} (${ranks[d.meta.myTeamId][k].rank} of 12)`).join(', ') || 'none'}.
+          Points per week is the change in your best lineup at that slot: the added player minus the starter who would leave.
+          Position ranks each spot on its own, then shows one board. Lineup Δ, hype, fit, and role re-sort that board.
+          Fit, hype, and role are still on the meters. The old 40/35/15/10 mix with raw value is arbitrary and does not set this order.
+          FAAB is a share of the ${me.faabLeft} left, by lineup-delta rank. Those shares are arbitrary.
+          Weakest groups: {weak.map((k) => `${k} (${ranks[d.meta.myTeamId][k].rank} of 12)`).join(', ') || 'none'}.
         </p>
       </GlassCard>
       {list.length === 0 ? (
@@ -60,7 +83,7 @@ export function Waivers() {
                   {w.player.status === 'WAIVERS' && <span className="tag">On waivers</span>}
                 </div>
                 <div className="pmeta">
-                  <span>{w.player.pos}</span><TeamLink abbr={w.player.nfl} /><span>{w.player.own}% rostered</span><RankDelta p={w.player} />
+                  <span>{w.player.pos} #{w.posRank}</span><TeamLink abbr={w.player.nfl} /><span>{w.player.own}% rostered</span><RankDelta p={w.player} />
                 </div>
                 <p className="why">{w.why.length ? w.why.join('; ') : 'Depth with little upside right now'}</p>
               </div>
@@ -68,7 +91,16 @@ export function Waivers() {
                 className="wstats"
                 label={`${w.player.name} waiver value`}
                 items={[
-                  { key: 'gain', label: 'Your pts/wk', value: signed(w.gain), className: 'hero', tone: w.gain > 0 ? 'up' : w.gain < 0 ? 'down' : 'neutral' },
+                  {
+                    key: 'gain',
+                    label: w.leaves ? `vs ${shortName(w.leaves.name)}` : 'Lineup Δ',
+                    value: signed(w.gain),
+                    className: 'hero',
+                    tone: w.gain > 0 ? 'up' : w.gain < 0 ? 'down' : 'neutral',
+                    title: w.leaves
+                      ? `${signed(w.gain)} weighted pts/week at ${w.slot} over ${w.leaves.name}. Playoff weeks count 1.5×.`
+                      : 'Does not enter the best lineup.',
+                  },
                   { key: 'ros', label: 'ROS/wk', value: fmt(w.value) },
                   {
                     key: 'bid',
