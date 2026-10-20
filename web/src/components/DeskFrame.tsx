@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   articleFacts,
   boxScorePoints,
-  currentHomeWin,
+  drivesFrom,
   gameArticle,
   headlinesForRecent,
   headlinesFromSummary,
@@ -10,19 +10,14 @@ import {
   moneylineText,
   playersInGame,
   possessionAbbr,
-  ringSlots,
-  scoringPlaysFrom,
-  spreadText,
   standoutsFrom,
   summarySituation,
   watchTarget,
-  winSeries,
-  drivesFrom,
   type DeskPlayer,
 } from '../board/desk'
+import { gameClipQuery } from '../board/clips'
 import {
   formatAmerican,
-  formatLine,
   movementSentences,
   priceSentence,
   scriptNote,
@@ -32,10 +27,19 @@ import {
   type RecentGame,
   type TeamContext,
 } from '../board/normalize'
+import { scoringTrips } from '../board/scoring'
+import { searchView } from '../board/search'
+import { spreadSlot } from '../board/ticker'
+import { winGraph } from '../board/wingraph'
 import { useOptionalEngine } from '../dataContext'
-import { useOptionalFocus } from '../focus'
+import { ShortcutChip } from './glass'
 import { ClipStack } from './ClipStack'
-import { PlayerLink, TeamLink } from './links'
+import { FieldDiagram } from './FieldDiagram'
+import { GameShelf, type ShelfPlayer } from './GameShelf'
+import { GameTicker } from './GameTicker'
+import { TeamLink } from './links'
+import { PlayerLink } from './links'
+import { WinGraphFigure } from './WinGraphFigure'
 
 function when(iso: string): string {
   const d = new Date(iso)
@@ -50,82 +54,29 @@ function KnownName({ name }: { name: string }) {
   return <PlayerLink id={hit.id} name={hit.name} />
 }
 
-function WatchIcon() {
-  return (
-    <svg className="watch-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden>
-      <path d="M8 6.5v11l9-5.5-9-5.5z" fill="currentColor" />
-      <rect x="3" y="5" width="18" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  )
-}
-
-function RingCard({ game, yours, onSelect }: { game: BoardGame; yours: boolean; onSelect: (id: string) => void }) {
-  const showScore = game.state !== 'pre'
-  const spread = game.quote?.home.line
-  const ball = possessionAbbr(game)
-  const clock = game.situation?.clock || game.detail
-  return (
-    <button type="button" className={yours ? 'ring-card has-roster' : 'ring-card'} onClick={() => onSelect(game.id)}>
-      {yours && <i className="roster-mark" title="Someone on your roster is in this game" />}
-      <span className="ring-teams">
-        <b>{game.away.abbr}</b>
-        {showScore ? <b className="ring-score">{game.away.score ?? '—'}–{game.home.score ?? '—'}</b> : <em>{game.detail}</em>}
-        <b>{game.home.abbr}</b>
-      </span>
-      <span className="ring-meta">
-        {clock}
-        {ball ? ` · ${ball} ball` : ''}
-        {game.situation?.redZone ? ' · Red zone' : ''}
-        {spread == null ? ' · No line' : ` · ${game.home.abbr} ${formatLine(spread)}`}
-      </span>
-      <WatchIcon />
-      <span className="sr">{yours ? 'Your roster is in this game. ' : ''}Show {game.away.name} at {game.home.name} in the center. {game.broadcast ?? 'No broadcast listed'}.</span>
-    </button>
-  )
-}
-
-function WinDots({ points }: { points: { home: number }[] }) {
-  if (!points.length) return null
-  const w = 360
-  const h = 88
-  const xy = points.map((point, i) => {
-    const x = points.length === 1 ? w / 2 : (i / (points.length - 1)) * (w - 8) + 4
-    const y = 6 + (1 - Math.max(0, Math.min(100, point.home)) / 100) * (h - 12)
-    return { x, y }
-  })
-  return (
-    <figure className="win-line">
-      <figcaption>ESPN's model</figcaption>
-      <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`ESPN home win probability across ${points.length} recorded plays`}>
-        {points.length >= 2 && <polyline points={xy.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2" />}
-        {xy.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={points.length === 1 ? 6 : 3} />)}
-      </svg>
-    </figure>
-  )
-}
-
 function MarketBlock({ game }: { game: BoardGame }) {
   const quote = game.quote
   const lines = moneylineText(game)
-  if (!quote) return <p>No line on this game. The final score is the result. A missing quote is not a number to invent.</p>
+  if (!quote) return null
+  const spread = spreadSlot(game)
   return (
     <div className="market-block">
       <h3>Market</h3>
       <div className="detail-grid">
         <div className="mcol">
           <small>{quote.book} spread</small>
-          <b>{spreadText(game) ?? '—'}</b>
-          <span>{quote.home.price != null ? `${formatAmerican(quote.home.price)} · ${priceSentence(quote.home.price)}` : 'Price not listed'}</span>
+          {spread ? <b>{spread}</b> : null}
+          <span>{quote.home.price != null ? `${formatAmerican(quote.home.price)} · ${priceSentence(quote.home.price)}` : ''}</span>
         </div>
         <div className="mcol">
           <small>Total</small>
-          <b>{quote.total ?? '—'}</b>
-          <span>{[quote.overPrice != null ? `Over ${formatAmerican(quote.overPrice)}` : null, quote.underPrice != null ? `Under ${formatAmerican(quote.underPrice)}` : null].filter(Boolean).join(' · ') || 'Price not listed'}</span>
+          {quote.total != null ? <b>{quote.total}</b> : null}
+          <span>{[quote.overPrice != null ? `Over ${formatAmerican(quote.overPrice)}` : null, quote.underPrice != null ? `Under ${formatAmerican(quote.underPrice)}` : null].filter(Boolean).join(' · ')}</span>
         </div>
         <div className="mcol">
           <small>Moneyline</small>
-          <b>{game.away.abbr} {lines.away ?? '—'}</b>
-          <span>{game.home.abbr} {lines.home ?? '—'}</span>
+          <b>{game.away.abbr} {lines.away ?? ''}</b>
+          <span>{game.home.abbr} {lines.home ?? ''}</span>
         </div>
       </div>
       {movementSentences(game).map((sentence) => <p key={sentence}>{sentence}</p>)}
@@ -180,6 +131,9 @@ export function DeskFrame({
   missingId,
   detail,
   detailError,
+  query,
+  onQuery,
+  onCommit,
   onSelect,
 }: {
   board: Board
@@ -189,10 +143,12 @@ export function DeskFrame({
   missingId: string | null
   detail: { context: GameContext | null; raw: unknown } | null
   detailError: boolean
+  query: string
+  onQuery: (value: string) => void
+  onCommit: () => void
   onSelect: (id: string) => void
 }) {
   const engine = useOptionalEngine()
-  const focus = useOptionalFocus()
   const [recent, setRecent] = useState<RecentGame | null>(null)
   const myId = engine?.d.meta.myTeamId ?? -1
   const week = engine ? String(engine.d.meta.week) : ''
@@ -201,21 +157,8 @@ export function DeskFrame({
       .filter((p) => p.teamId === myId && p.status === 'ONTEAM')
       .map((p) => ({ id: p.id, name: p.name, nfl: p.nfl, teamId: p.teamId, proj: p.proj[week] ?? null }))
     : []
-  const others = selected ? board.games.filter((game) => game.id !== selected.id) : board.games
-  const slots = ringSlots(others)
-  const dense = board.games.length > 8
-  const solo = board.games.length <= 1
-  const sided = slots.left.length > 0 || slots.right.length > 0
+  const view = searchView(board.games, query, selected?.id ?? null)
   const yours = (game: BoardGame) => playersInGame(game, roster, myId).length > 0
-  const frameClass = solo ? 'frame solo' : `${dense ? 'frame dense' : 'frame'}${sided ? '' : ' no-sides'}`
-
-  const ring = (games: BoardGame[], place: string) => (
-    games.length > 0 ? (
-      <div className={`ring ring-${place}`}>
-        {games.map((game) => <RingCard key={game.id} game={game} yours={yours(game)} onSelect={onSelect} />)}
-      </div>
-    ) : null
-  )
 
   return (
     <div className="desk-copy">
@@ -227,42 +170,54 @@ export function DeskFrame({
             {board.byes.length > 0 ? <span className="bye-line"> · Bye: {board.byes.map((b, i) => <span key={b.abbr}>{i ? ', ' : ''}<TeamLink abbr={b.abbr}>{b.abbr}</TeamLink></span>)}</span> : null}
           </p>
         </div>
+        <label className="findbox desk-find">
+          <span className="sr">Find a team</span>
+          <ShortcutChip keys="/" />
+          <input
+            id="board-find"
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onCommit()
+              if (e.key === 'Escape') onQuery('')
+            }}
+            placeholder="Find a team"
+            aria-label="Find a team. Enter opens the first match. Clearing the box keeps every game."
+          />
+        </label>
       </header>
-      <div className={frameClass}>
-        {!solo && ring(slots.top, 'top')}
-        {!solo && ring(slots.left, 'left')}
-        <div className="center-desk glass featured">
+      <GameTicker
+        games={view.games}
+        selectedId={view.selectedId}
+        matches={view.matches}
+        query={query}
+        yours={yours}
+        onSelect={onSelect}
+      />
+      <div className="game-stage">
+        <div className="game-sheet glass featured">
           {lineError && <p className="block-fail">Line: {lineError}</p>}
           {missingId && !selected && (
-            <p>That game is not on this week's board. The ring is still the scoreboard we have.</p>
+            <p>That game is not on this week's board. The ticker is still every game we have.</p>
           )}
           {selected && (
-            <Center
+            <Selected
               game={selected}
+              week={board.week}
+              kickoffs={board.games.map((row) => row.kickoff)}
               detail={detail}
               detailError={detailError}
-              roster={roster}
-              myId={myId}
               onRecent={setRecent}
-              onPinArticle={(paragraphs) => focus?.pin({
-                kind: 'article',
-                id: `article:${selected.id}`,
-                gameId: selected.id,
-                title: `${selected.away.abbr} at ${selected.home.abbr}`,
-                paragraphs,
-              })}
-              onPinTeam={(abbr, name) => focus?.pin({ kind: 'team', id: `team:${abbr}`, abbr, name })}
-              onPinNews={(id, headline, href) => focus?.pin({ kind: 'news', id: `news:${id}`, headline, summary: null, href })}
-              onPinPlayer={(id) => {
-                const player = engine?.d.players.find((p) => p.id === id)
-                if (player) focus?.setPinned(player)
-              }}
-              canPin={Boolean(focus)}
             />
           )}
         </div>
-        {!solo && ring(slots.right, 'right')}
-        {!solo && ring(slots.bottom, 'bottom')}
+        <GameShelf
+          game={selected}
+          games={board.games}
+          players={selected ? shelfPlayers(selected, roster, myId, detail?.raw ?? null) : []}
+          gameState={selected?.state ?? null}
+          onSelect={onSelect}
+        />
       </div>
       {recent && (
         <div className="week-pop" role="dialog" aria-label={`Week ${recent.week ?? ''}`}>
@@ -277,243 +232,107 @@ export function DeskFrame({
   )
 }
 
-function Center({
+function shelfPlayers(game: BoardGame, roster: DeskPlayer[], myId: number, raw: unknown): ShelfPlayer[] {
+  const box = raw ? boxScorePoints(raw) : []
+  return playersInGame(game, roster, myId).map((player) => ({
+    id: player.id,
+    name: player.name,
+    proj: player.proj,
+    scored: game.state === 'pre' ? null : box.find((row) => row.id === player.id)?.points ?? box.find((row) => row.name.toLowerCase() === player.name.toLowerCase())?.points ?? null,
+  }))
+}
+
+function Selected({
   game,
+  week,
+  kickoffs,
   detail,
   detailError,
-  roster,
-  myId,
   onRecent,
-  onPinArticle,
-  onPinTeam,
-  onPinNews,
-  onPinPlayer,
-  canPin,
 }: {
   game: BoardGame
+  week: number
+  kickoffs: string[]
   detail: { context: GameContext | null; raw: unknown } | null
   detailError: boolean
-  roster: DeskPlayer[]
-  myId: number
   onRecent: (game: RecentGame) => void
-  onPinArticle: (paragraphs: string[]) => void
-  onPinTeam: (abbr: string, name: string) => void
-  onPinNews: (id: string, headline: string, href: string | null) => void
-  onPinPlayer: (id: string) => void
-  canPin: boolean
 }) {
   const raw = detail?.raw ?? null
   const ctx = detail?.context ?? null
   const situation = (raw && summarySituation(raw)) || game.situation
   const shown: BoardGame = situation && situation !== game.situation ? { ...game, situation } : game
   const watch = watchTarget(game.broadcast)
-  const series = raw ? winSeries(raw) : []
-  const current = raw ? currentHomeWin(raw) : null
-  const plays = raw ? scoringPlaysFrom(raw) : []
+  const graph = raw ? winGraph(raw, game.home.abbr, game.away.abbr) : null
+  const trips = raw ? scoringTrips(raw, { homeId: game.home.id, homeAbbr: game.home.abbr, awayId: game.away.id, awayAbbr: game.away.abbr }) : []
   const drives = raw ? drivesFrom(raw) : []
   const standouts = raw ? standoutsFrom(raw) : []
-  const box = raw ? boxScorePoints(raw) : []
-  const mine = playersInGame(game, roster, myId)
   const headlines = raw ? headlinesFromSummary(raw, game.id, { names: [game.away.name, game.home.name], abbrs: [game.away.abbr, game.home.abbr] }) : []
-  const injuries = ctx ? [
-    ...ctx.away.injuries.map((row) => ({ team: ctx.away.name, name: row.name, status: row.status })),
-    ...ctx.home.injuries.map((row) => ({ team: ctx.home.name, name: row.name, status: row.status })),
-  ] : []
-  const yours = mine.map((player) => ({
-    name: player.name,
-    proj: player.proj,
-    scored: game.state === 'pre' ? null : box.find((row) => row.id === player.id)?.points ?? box.find((row) => row.name.toLowerCase() === player.name.toLowerCase())?.points ?? null,
-  }))
-  const facts = articleFacts({
-    game,
-    injuries,
-    yours,
-    headlines: headlines.map((item) => item.title),
-    scoringPlays: plays.map((play) => play.text),
-  })
+  const facts = articleFacts({ game, injuries: [], yours: [], headlines: [], scoringPlays: [] })
   const paragraphs = gameArticle(facts)
   const ball = possessionAbbr(shown)
   const where = [game.venue, game.city, game.indoor === true ? 'Indoor' : game.indoor === false ? 'Outdoor' : null].filter(Boolean).join(' · ')
+  const spread = spreadSlot(game)
+  const ready = detail != null
+  const headline = headlines[0]
 
   return (
     <article>
       <header className="center-top">
-        <p className="desk-where">{where || 'Site not on this pull'}</p>
+        <div>
+          <h2 className="desk-team">
+            <TeamLink abbr={game.away.abbr}>{game.away.name}</TeamLink>
+            {' at '}
+            <TeamLink abbr={game.home.abbr}>{game.home.name}</TeamLink>
+          </h2>
+          <p className="desk-where">{where || 'Site not on this pull'}</p>
+        </div>
         {watch ? (
           <a className="watch-btn" href={watch.href} target="_blank" rel="noreferrer">Watch on {watch.label}</a>
         ) : (
           <button type="button" className="watch-btn" disabled>{game.broadcast || 'No broadcast listed'}</button>
         )}
       </header>
-      <div className="center-title">
-        <h2 className="desk-team"><TeamLink abbr={game.away.abbr}>{game.away.name}</TeamLink> at <TeamLink abbr={game.home.abbr}>{game.home.name}</TeamLink></h2>
-        {canPin && (
-          <p className="news-next">
-            <button type="button" className="ghost" onClick={() => onPinTeam(game.away.abbr, game.away.name)}>Pin {game.away.abbr}</button>
-            <button type="button" className="ghost" onClick={() => onPinTeam(game.home.abbr, game.home.name)}>Pin {game.home.abbr}</button>
-            <button type="button" className="ghost" onClick={() => onPinArticle(paragraphs)}>Pin article</button>
-          </p>
-        )}
-      </div>
-      {detailError && <p className="block-fail">Detail: injuries, drives, and the win-probability series did not load.</p>}
       {game.state === 'pre' ? (
-        <Pregame game={game} ctx={ctx} paragraphs={paragraphs} yours={yours} mine={mine} onPinPlayer={onPinPlayer} canPin={canPin} onRecent={onRecent} />
+        <p className="live-meta">{when(game.kickoff)}. {game.detail}.{game.broadcast ? ` Watch: ${game.broadcast}.` : ''}</p>
       ) : (
-        <LiveDesk
-          game={shown}
-          ball={ball}
-          series={series}
-          current={current}
-          paragraphs={paragraphs}
-          plays={plays}
-          drives={drives}
-          standouts={standouts}
-          yours={yours}
-          mine={mine}
-          ctx={ctx}
-          headlines={headlines}
-          onPinPlayer={onPinPlayer}
-          onPinNews={onPinNews}
-          canPin={canPin}
-          onRecent={onRecent}
-        />
+        <>
+          <p className="score-line">
+            <span className="desk-score">{game.away.abbr} {game.away.score ?? '–'}</span>
+            <span className="desk-score">{game.home.abbr} {game.home.score ?? '–'}</span>
+          </p>
+          <p className="live-meta">
+            {game.detail}
+            {shown.situation?.clock ? ` · ${shown.situation.clock}` : ''}
+            {ball ? ` · ${ball} has the ball` : ''}
+            {shown.situation?.redZone ? ' · Red zone' : ''}
+          </p>
+        </>
       )}
-      <ClipStack gameId={game.id} away={game.away.name} home={game.home.name} />
-    </article>
-  )
-}
-
-function Pregame({
-  game,
-  ctx,
-  paragraphs,
-  yours,
-  mine,
-  onPinPlayer,
-  canPin,
-  onRecent,
-}: {
-  game: BoardGame
-  ctx: GameContext | null
-  paragraphs: string[]
-  yours: { name: string; proj: number | null; scored: number | null }[]
-  mine: DeskPlayer[]
-  onPinPlayer: (id: string) => void
-  canPin: boolean
-  onRecent: (game: RecentGame) => void
-}) {
-  return (
-    <div className="center-body">
-      <div className="article">
-        {paragraphs.map((line) => <p key={line}>{line}</p>)}
-      </div>
-      <p><b>Kickoff</b> {when(game.kickoff)}. {game.detail}. {game.broadcast ? `Watch: ${game.broadcast}.` : 'No broadcast listed.'}</p>
-      {ctx?.predictor ? (
-        <p className="win-dot"><i aria-hidden /> ESPN's matchup predictor has {game.home.abbr} at {ctx.predictor.home}% and {game.away.abbr} at {ctx.predictor.away}%. One figure, not a history.</p>
-      ) : null}
-      <MarketBlock game={game} />
-      <section>
-        <h3>Injuries</h3>
-        {ctx ? <InjuryList teams={[ctx.away, ctx.home]} /> : <p className="muted">Injury report has not arrived.</p>}
-      </section>
-      <YourPlayers gameState="pre" yours={yours} mine={mine} onPinPlayer={onPinPlayer} canPin={canPin} />
-      {ctx && (
-        <div className="recent-row">
-          <RecentStrip label={ctx.away.abbr} games={ctx.away.recent} onOpen={onRecent} />
-          <RecentStrip label={ctx.home.abbr} games={ctx.home.recent} onOpen={onRecent} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function LiveDesk({
-  game,
-  ball,
-  series,
-  current,
-  paragraphs,
-  plays,
-  drives,
-  standouts,
-  yours,
-  mine,
-  ctx,
-  headlines,
-  onPinPlayer,
-  onPinNews,
-  canPin,
-  onRecent,
-}: {
-  game: BoardGame
-  ball: string | null
-  series: { home: number }[]
-  current: number | null
-  paragraphs: string[]
-  plays: { id: string; text: string; clock: string; quarter: number | null; team: string; awayScore: number | null; homeScore: number | null }[]
-  drives: { id: string; team: string; result: string; plays: { id: string; text: string; clock: string; down: string; scoring: boolean }[] }[]
-  standouts: { label: string; name: string; stat: string }[]
-  yours: { name: string; proj: number | null; scored: number | null }[]
-  mine: DeskPlayer[]
-  ctx: GameContext | null
-  headlines: { id: string; title: string; href: string | null }[]
-  onPinPlayer: (id: string) => void
-  onPinNews: (id: string, headline: string, href: string | null) => void
-  canPin: boolean
-  onRecent: (game: RecentGame) => void
-}) {
-  return (
-    <div className="center-body">
-      <p className="score-line">
-        <span className="desk-score">{game.away.abbr} {game.away.score ?? '—'}</span>
-        <span className="desk-score">{game.home.abbr} {game.home.score ?? '—'}</span>
-      </p>
-      <p className="live-meta">
-        {game.detail}
-        {game.situation?.clock ? ` · ${game.situation.clock}` : ''}
-        {ball ? ` · ${ball} has the ball` : ''}
-        {game.situation?.redZone ? ' · Red zone' : ''}
-      </p>
-      {series.length > 0 ? <WinDots points={series} /> : (
-        <p>{current != null ? `${current}% from ESPN's model. ` : 'ESPN\'s model. '}The play-by-play line has not arrived.</p>
-      )}
-      <div className="article">
-        {paragraphs.map((line) => <p key={line}>{line}</p>)}
-      </div>
-      <div className="center-cols">
-        <div>
-          <h3>Scoring plays</h3>
-          {plays.length === 0 ? <p className="muted">No scoring plays on this pull.</p> : (
-            <ol className="play-list">
-              {plays.map((play) => (
-                <li key={play.id}>
-                  <b>{play.team || 'Score'}</b> {play.text}
-                  <small>{play.quarter ? ` Q${play.quarter}` : ''}{play.clock ? ` ${play.clock}` : ''}{play.awayScore != null && play.homeScore != null ? ` · ${play.awayScore}–${play.homeScore}` : ''}</small>
-                </li>
-              ))}
-            </ol>
-          )}
-          <h3>Play-by-play</h3>
-          {drives.length === 0 ? <p className="muted">No drives on this pull.</p> : (
-            <div className="pbp">
-              {drives.map((drive) => (
-                <section key={drive.id}>
-                  <h4>{drive.team} · {drive.result}</h4>
-                  <ol>
-                    {drive.plays.map((play) => (
-                      <li key={play.id}>{play.clock} {play.down} {play.text}</li>
-                    ))}
-                  </ol>
-                </section>
-              ))}
-            </div>
-          )}
-        </div>
-        <div>
-          <YourPlayers gameState={game.state} yours={yours} mine={mine} onPinPlayer={onPinPlayer} canPin={canPin} />
-          <section>
+      {detailError && <p className="block-fail">Detail: injuries, drives, and the win-probability series did not load.</p>}
+      <div className="game-cols">
+        <div className="game-main">
+          <section className="desk-section" aria-label="Win probability">
+            <h3>Win probability</h3>
+            {!ready && !detailError && <p>The summary has not arrived.</p>}
+            {graph ? <WinGraphFigure graph={graph} /> : (ready || detailError) && <p>The play-by-play line has not arrived.</p>}
+            {!graph && ctx?.predictor && (
+              <p>ESPN's matchup predictor has {game.home.abbr} at {ctx.predictor.home}% and {game.away.abbr} at {ctx.predictor.away}%. One figure, not a history.</p>
+            )}
+          </section>
+          <section className="desk-section" aria-label="Headline">
+            <h3>Headline</h3>
+            {!ready && !detailError && <p className="muted">The summary has not arrived.</p>}
+            {(ready || detailError) && !headline && <p>No headline stored for this game.</p>}
+            {headline && (headline.href ? <p><a href={headline.href} target="_blank" rel="noreferrer">{headline.title}</a></p> : <p>{headline.title}</p>)}
+            {headlines.slice(1).map((item) => (
+              <p key={item.id}>{item.href ? <a href={item.href} target="_blank" rel="noreferrer">{item.title}</a> : item.title}</p>
+            ))}
+          </section>
+          <section className="desk-section" aria-label="Standouts">
             <h3>Standouts</h3>
-            {standouts.length === 0 ? <p className="muted">No passing, rushing, or receiving line on this pull.</p> : (
+            {!ready && !detailError && <p className="muted">The summary has not arrived.</p>}
+            {(ready || detailError) && standouts.length === 0 && <p className="muted">No passing, rushing, or receiving line on this pull.</p>}
+            {standouts.length > 0 && (
               <ul className="inj-list">
                 {standouts.map((row) => (
                   <li key={row.label}><b>{row.label}</b> <KnownName name={row.name} /> <span>{row.stat}</span></li>
@@ -521,70 +340,79 @@ function LiveDesk({
               </ul>
             )}
           </section>
-          <section>
+          <section className="desk-section" aria-label="Scoring plays">
+            <h3>Scoring plays</h3>
+            {!ready && !detailError && <p className="muted">Scoring plays have not arrived.</p>}
+            {(ready || detailError) && trips.length === 0 && <p className="muted">No scoring plays on this pull.</p>}
+            {trips.length > 0 && (
+              <ol className="play-list">
+                {trips.map((play) => (
+                  <li key={play.id || play.text}>
+                    {play.field ? <FieldDiagram field={play.field} /> : null}
+                    <p>{play.text}</p>
+                    <small>{play.kind}{play.quarter ? ` · Q${play.quarter}` : ''}{play.clock ? ` ${play.clock}` : ''}{play.awayScore != null && play.homeScore != null ? ` · ${play.awayScore}–${play.homeScore}` : ''}</small>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+          <section className="desk-section" aria-label="Rest of the summary">
+            <h3>Rest of the summary</h3>
+            <div className="article">
+              {paragraphs.map((line) => <p key={line}>{line}</p>)}
+            </div>
+            <h3>Play-by-play</h3>
+            {!ready && !detailError && <p className="muted">Drives have not arrived.</p>}
+            {(ready || detailError) && drives.length === 0 && <p className="muted">No drives on this pull.</p>}
+            {drives.length > 0 && (
+              <div className="pbp">
+                {drives.map((drive) => (
+                  <section key={drive.id}>
+                    <h4>{drive.team} · {drive.result}</h4>
+                    <ol>
+                      {drive.plays.map((play) => (
+                        <li key={play.id}>{play.clock} {play.down} {play.text}</li>
+                      ))}
+                    </ol>
+                  </section>
+                ))}
+              </div>
+            )}
+          </section>
+          <ClipStack
+            contextId={game.id}
+            query={week ? gameClipQuery(game.home.name, game.away.name, week) : null}
+            kickoffs={kickoffs}
+          />
+        </div>
+        <div className="game-side">
+          <section className="desk-section spread-section" aria-label="Spread">
+            <h3>Spread</h3>
+            {spread ? <p className="spread-figure">{spread}</p> : null}
+          </section>
+          {game.quote ? <section className="desk-section"><MarketBlock game={game} /></section> : null}
+          <section className="desk-section" aria-label="Situation">
+            <h3>Situation</h3>
+            <p>
+              {game.state === 'pre' ? when(game.kickoff) : game.detail}
+              {shown.situation?.clock ? ` · ${shown.situation.clock}` : ''}
+              {ball ? ` · ${ball} has the ball` : ''}
+              {shown.situation?.redZone ? ' · Red zone' : ''}
+            </p>
+            {game.broadcast && <p>{game.broadcast}</p>}
+          </section>
+          <section className="desk-section" aria-label="Injuries">
             <h3>Injuries</h3>
             {ctx ? <InjuryList teams={[ctx.away, ctx.home]} /> : <p className="muted">Injury report has not arrived.</p>}
           </section>
-          <MarketBlock game={game} />
-          <section>
-            <h3>Breaking news</h3>
-            {headlines.length === 0 ? <p className="muted">No headline stored for this game.</p> : (
-              <ul className="inj-list">
-                {headlines.map((item) => (
-                  <li key={item.id}>
-                    {item.href ? <a href={item.href} target="_blank" rel="noreferrer">{item.title}</a> : item.title}
-                    {canPin && <button type="button" className="ghost" onClick={() => onPinNews(item.id, item.title, item.href)}>Pin</button>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          {ctx && (
+            <section className="desk-section" aria-label="Recent results">
+              <RecentStrip label={ctx.away.abbr} games={ctx.away.recent} onOpen={onRecent} />
+              <RecentStrip label={ctx.home.abbr} games={ctx.home.recent} onOpen={onRecent} />
+            </section>
+          )}
         </div>
       </div>
-      {ctx && (
-        <div className="recent-row">
-          <RecentStrip label={ctx.away.abbr} games={ctx.away.recent} onOpen={onRecent} />
-          <RecentStrip label={ctx.home.abbr} games={ctx.home.recent} onOpen={onRecent} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function YourPlayers({
-  gameState,
-  yours,
-  mine,
-  onPinPlayer,
-  canPin,
-}: {
-  gameState: BoardGame['state']
-  yours: { name: string; proj: number | null; scored: number | null }[]
-  mine: DeskPlayer[]
-  onPinPlayer: (id: string) => void
-  canPin: boolean
-}) {
-  return (
-    <section>
-      <h3>Your players</h3>
-      {yours.length === 0 ? <p className="muted">Nobody from your roster is in this game.</p> : (
-        <ul className="inj-list">
-          {yours.map((row, i) => {
-            const id = mine[i]?.id
-            return (
-              <li key={row.name}>
-                {id ? <PlayerLink id={id} name={row.name} /> : <b>{row.name}</b>}
-                {gameState === 'pre' || row.scored == null ? (
-                  <span>{row.proj == null ? 'No week projection stored' : `${row.proj} projected this week`}</span>
-                ) : (
-                  <span>{row.scored} so far · {row.proj == null ? 'no week projection stored' : `${row.proj} projected this week`}. Points so far and the projection are different numbers.</span>
-                )}
-                {canPin && id && <button type="button" className="ghost" onClick={() => onPinPlayer(id)}>Pin</button>}
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </section>
+    </article>
   )
 }

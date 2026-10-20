@@ -1,6 +1,8 @@
 # Games framed desk
 
-Date: 2026-10-18. The Games screen (`#games`, and `#game/{id}` as a deep link) is one desk. The selected game is the center. The rest of the week is a ring.
+Date: 2026-10-18. Superseded for the Games screen by `2026-10-20-games-ticker-desk.md`. The notes below describe the ring desk this page used to be.
+
+The Games screen (`#games`, and `#game/{id}` as a deep link) is one desk. The selected game is the center. The rest of the week is a ring.
 
 ## What the desk shows
 

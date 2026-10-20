@@ -161,7 +161,7 @@ export function App() {
   const lore = useDeskLore(route.kind, route.kind === 'nfl' ? route.abbr : route.kind === 'screen' ? route.id : route.id, data, tradeIds)
   const onBoard = current === 'games'
   const bareTitle = route.kind === 'nfl' ? route.abbr : route.kind === 'player' ? 'Player' : route.kind === 'game' ? 'Game' : route.id === 'news' ? 'News' : route.id === 'games' ? 'Games' : 'My team'
-  const showRail = Boolean(engine) && (route.kind === 'game' || (route.kind === 'screen' && route.id !== 'news'))
+  const showRail = Boolean(engine) && !onBoard && route.kind === 'screen' && route.id !== 'news'
   const desk = engine
     ? {
         me: engine.d.teams.find((t) => t.id === engine.d.meta.myTeamId)!,
