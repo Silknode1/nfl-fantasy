@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Player } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useFocus, useNumbered } from '../focus'
 import { RangeChart, weekRange } from '../components/RangeChart'
 import { PlayerProfile } from '../components/PlayerProfile'
 import { weekAdvice } from '../engine/advice'
-import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, signed } from '../components/bits'
-import { GlassCard, PlayerCard, StatGroup, SuccessMark } from '../components/glass'
+import { breakingRosterNews } from '../espn/breaking'
+import { fetchNewsBundle } from '../espn/load'
+import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
+import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, hot, signed } from '../components/bits'
+import { GlassCard, NewsCard, PlayerCard, StatGroup, SuccessMark } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
-import { hot } from '../components/bits'
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX']
 
@@ -69,6 +71,37 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
   )
 }
 
+function BreakingStrip({ roster }: { roster: Player[] }) {
+  const [items, setItems] = useState<NewsItem[] | null>(null)
+  const key = roster.map((p) => p.id).join(',')
+  useEffect(() => {
+    let stop = false
+    fetchNewsBundle()
+      .then((bundle) => {
+        if (stop) return
+        const jev = newsFromPlayers(roster)
+        const merged = dedupeNews(linkNewsToPlayers([...jev, ...bundle.espn, ...bundle.scoreboard], roster))
+        setItems(breakingRosterNews(merged, roster, Date.now()))
+      })
+      .catch(() => { if (!stop) setItems([]) })
+    return () => { stop = true }
+  }, [key, roster])
+  if (!items?.length) return null
+  return (
+    <div className="breaking" aria-label="Breaking injury news">
+      {items.slice(0, 3).map((item) => (
+        <NewsCard
+          key={item.id}
+          featured
+          kicker={`Breaking · ${item.source === 'jev' ? 'League news' : item.source === 'scoreboard' ? 'Scoreboard' : 'ESPN'}`}
+          title={item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.headline}</a> : item.headline}
+          summary={item.summary}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function Roster() {
   const { d, lab, ranks } = useEngineCtx()
   const me = d.meta.myTeamId
@@ -87,6 +120,7 @@ export function Roster() {
   const weeks = Array.from({ length: d.meta.lastWeek - d.meta.week + 1 }, (_, i) => d.meta.week + i)
   return (
     <div className="screen">
+      <BreakingStrip roster={mine} />
       <GlassCard featured lean as="section">
         <h2>Week {d.meta.week} lineup</h2>
         {wa.swaps.length ? (

@@ -1,9 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOptionalEngine } from '../dataContext'
 import { fetchNewsBundle } from '../espn/load'
 import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
 import { EmptyState, GlassCard, NewsCard, Skeleton } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
+import { DATE_LABEL, filterNews, POPULARITY_LABEL, UNTAGGED_RULE, type NewsFilter, type PopularityPlayer } from '../news/feed'
+import { previewText } from '../news/preview'
+
+const FILTERS: { id: NewsFilter; label: string }[] = [
+  { id: 'popularity', label: 'Popularity' },
+  { id: 'date', label: 'Date' },
+  { id: 'player', label: 'Player news' },
+  { id: 'team', label: 'Team news' },
+]
+
+const NOTE: Record<NewsFilter, string> = {
+  popularity: POPULARITY_LABEL,
+  date: DATE_LABEL,
+  player: 'Player news is tagged to one player. Newest first.',
+  team: `${UNTAGGED_RULE} Newest first.`,
+}
 
 function when(iso: string | null): string | null {
   if (!iso) return null
@@ -12,14 +28,15 @@ function when(iso: string | null): string | null {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-function Item({ item, featured = false }: { item: NewsItem; featured?: boolean }) {
+function Item({ item }: { item: NewsItem }) {
   const stamp = when(item.published)
   const nextPlayer = item.playerId
   const nextTeam = item.teams[0]
+  const preview = previewText(item.summary, item.headline)
+  const source = item.source === 'jev' ? 'League news' : item.source === 'scoreboard' ? 'Scoreboard' : 'ESPN'
   return (
     <NewsCard
-      featured={featured}
-      kicker={`${item.source === 'jev' ? 'League news' : item.source === 'scoreboard' ? 'Scoreboard' : 'ESPN'}${stamp ? ` · ${stamp}` : ''}`}
+      kicker={`${source}${stamp ? ` · ${stamp}` : ''}`}
       title={
         item.url ? (
           <a href={item.url} target="_blank" rel="noreferrer">{item.headline}</a>
@@ -31,8 +48,8 @@ function Item({ item, featured = false }: { item: NewsItem; featured?: boolean }
           item.headline
         )
       }
-      summary={item.summary}
     >
+      {preview ? <p className="news-preview">{preview}</p> : null}
       <p className="news-next">
         {nextPlayer && <PlayerLink id={nextPlayer} name="Open player" />}
         {item.teams.map((abbr) => <TeamLink key={abbr} abbr={abbr} />)}
@@ -48,6 +65,7 @@ export function NewsPage() {
   const engine = useOptionalEngine()
   const [items, setItems] = useState<NewsItem[] | null>(null)
   const [gap, setGap] = useState<string | null>(null)
+  const [filter, setFilter] = useState<NewsFilter>('date')
 
   useEffect(() => {
     let stop = false
@@ -70,22 +88,43 @@ export function NewsPage() {
     return () => { stop = true }
   }, [engine])
 
+  const players = useMemo<PopularityPlayer[]>(
+    () => (engine?.d.players ?? []).map((p) => ({ id: p.id, own: p.own, adds: p.adds })),
+    [engine],
+  )
+  const shown = useMemo(() => (items ? filterNews(items, filter, players) : []), [items, filter, players])
+
   return (
     <section className="screen">
       <GlassCard featured lean>
-        <h2>News</h2>
-        <p className="muted">
-          Headlines saved on your players, then ESPN and the scoreboard when the league file is quiet. Each card opens a player, a club, or the story.
-        </p>
+        <div className="panel-head">
+          <h2>News</h2>
+          <div className="seg news-filters" role="group" aria-label="News filters">
+            {FILTERS.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                className={filter === entry.id ? 'on' : ''}
+                aria-pressed={filter === entry.id}
+                onClick={() => setFilter(entry.id)}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="news-rule">{NOTE[filter]}</p>
         {gap && <p>{gap}</p>}
       </GlassCard>
       {items === null && <Skeleton variant="rows" label="Loading headlines" />}
-      {items && items.length === 0 && (
-        <EmptyState title="No headlines yet" body="Nothing landed on this pull. The board is still open if you want the week instead.">
-          <p className="news-next"><a className="dest" href="#games">Open the week</a></p>
-        </EmptyState>
+      {items && shown.length === 0 && (
+        <EmptyState title="No headlines in this filter" body="Nothing in this cut of the pull. Another filter may still have lines." />
       )}
-      {items?.map((item, i) => <Item key={item.id} item={item} featured={i === 0} />)}
+      {shown.length > 0 && (
+        <div className="news-cols">
+          {shown.map((item) => <Item key={item.id} item={item} />)}
+        </div>
+      )}
     </section>
   )
 }

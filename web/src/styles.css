@@ -330,6 +330,10 @@ p { margin: 0.4em 0; max-width: 72ch; }
 .gain { color: var(--up); font-weight: 650; }
 
 .trades { display: grid; grid-template-columns: minmax(250px, 320px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.needs-card { grid-column: 1 / -1; }
+.needs { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.needs li { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.breaking { display: flex; flex-direction: column; gap: 10px; }
 .trade-list ol { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
 .trade-item { width: 100%; display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 16px 18px 14px 20px; cursor: pointer; min-height: 44px; }
 .trade-item:hover { border-color: rgba(192, 132, 252, 0.45); }
@@ -1075,6 +1079,33 @@ button.ghost.back { margin-left: auto; }
   .success-mark.major .particles i:nth-child(3) { --x: -6px; --y: 10px; animation-delay: 20ms; }
   .success-mark.major .particles i:nth-child(4) { --x: 8px; --y: 8px; animation-delay: 100ms; }
   .grade-lg { animation: stamp 480ms cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+}
+
+/* News (#news) and League (#league). Names below are not used on Games. */
+.news-rule { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 0; }
+.news-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.news-cols .news-card h3 { font-size: 20px; line-height: 1.25; }
+.news-cols .news-preview { font-size: 14px; line-height: 1.45; color: var(--muted); margin: 6px 0 0; }
+
+.title-board { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 8px; }
+.title-board th, .title-board td { padding: 7px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+.title-board thead th { color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+.title-board .league-name { text-align: left; font-weight: 650; }
+.title-team.mine { background: rgba(192, 132, 252, 0.12); }
+.title-team.mine .league-name { color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.league-grid { width: 100%; font-variant-numeric: tabular-nums; }
+.league-grid .league-name { text-align: left; font-weight: 650; }
+.league-grid tr.mine .league-name { color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); background: rgba(192, 132, 252, 0.14); }
+
+.league-grid { border-collapse: collapse; border-spacing: 0; }
+.league-grid th, .league-grid td { padding: 0; text-align: center; }
+.league-grid thead th { padding: 8px 6px; color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+.league-grid .league-name { padding: 8px 10px; white-space: nowrap; }
+.league-grid .league-cell { font-weight: 650; min-width: 44px; height: 40px; padding: 8px 4px; }
+.league-grid .league-cell.dark { color: var(--accent-ink); }
+
+@media (max-width: 760px) {
+  .news-cols { grid-template-columns: 1fr; }
 }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
