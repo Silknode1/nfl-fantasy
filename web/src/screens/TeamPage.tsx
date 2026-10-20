@@ -5,6 +5,7 @@ import { statLineEmpty, type ClubGame, type ClubProfile, type ClubStats, type Ro
 import type { Player } from '../types'
 import { InjuryTag, fmt, signed } from '../components/bits'
 import { EmptyState, GlassCard, Skeleton, StatGroup } from '../components/glass'
+import { TeamClipSearch } from '../components/ClipStack'
 import { BackButton, PlayerLink, TeamLink } from '../components/links'
 
 function shown(n: number | null, digits = 1): string | null {
@@ -206,6 +207,7 @@ export function TeamPage({ abbr }: { abbr: string }) {
         )}
         <p className="news-next"><a className="dest" href="#news">News</a><a className="dest" href="#games">Games</a></p>
       </GlassCard>
+      <TeamClipSearch team={club.name} />
     </section>
   )
 }

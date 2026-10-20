@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { advanceClip, youtubeId, youtubeSearchHref, youtubeThumb } from '../board/desk'
+import { advanceClip, youtubeId, youtubeThumb } from '../board/desk'
+import {
+  clipListFrom,
+  clipSearchPath,
+  nflWeekStart,
+  rankClips,
+  readSignals,
+  signalFrom,
+  teamClipQuery,
+  writeSignal,
+  youtubeResultsHref,
+  type ClipListState,
+  type ClipSignal,
+  type RankedClip,
+} from '../board/clips'
+import { fetchScoreboard } from '../board/load'
 import { useClips } from '../clip'
-import { useOptionalFocus } from '../focus'
+import { useOptionalEngine } from '../dataContext'
 
 interface YtPlayer {
   playVideo: () => void
@@ -123,7 +138,7 @@ export function ActiveClip({ videoId, start, onEnded, onTime }: { videoId: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId])
 
-  if (failed) return <p>Clips: the player did not load. The link is still pinned as a still.</p>
+  if (failed) return <p>Clips: the player did not load. The thumbnail is still here.</p>
   return <div className="yt-frame"><div ref={host} /></div>
 }
 
@@ -132,44 +147,75 @@ function stamp(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function ClipStack({ gameId, away, home }: { gameId: string; away: string; home: string }) {
+function listNote(list: ClipListState | null, asked: boolean): string | null {
+  if (!asked) return 'The week start is not on this board, so the top-3 list is not requested.'
+  if (!list) return null
+  if (list.status === 'no-key') return 'The top-3 list needs a YouTube key.'
+  if (list.status === 'unavailable') return 'The top-3 list has not arrived.'
+  if (list.status === 'error') return list.message
+  if (list.items.length === 0) return 'No videos published this week for this search.'
+  return null
+}
+
+export function ClipStack({ contextId, query, kickoffs }: { contextId: string; query: string | null; kickoffs: string[] }) {
   const clipsApi = useClips()
-  const focus = useOptionalFocus()
-  const [clips, setClips] = useState<SavedClip[]>(() => readClips()[gameId] ?? [])
+  const [clips, setClips] = useState<SavedClip[]>(() => readClips()[contextId] ?? [])
   const [draft, setDraft] = useState('')
   const [pasteNote, setPasteNote] = useState<string | null>(null)
-  const memory = clipsApi.play.memory[gameId] ?? { index: 0, seconds: 0 }
+  const [list, setList] = useState<ClipListState | null>(null)
+  const [asked, setAsked] = useState(false)
+  const [signals, setSignals] = useState<ClipSignal[]>(() => readSignals(localStorage, contextId))
+  const [active, setActive] = useState<string | null>(null)
+  const memory = clipsApi.play.memory[contextId] ?? { index: 0, seconds: 0 }
   const [index, setIndex] = useState(memory.index)
   const [loop, setLoop] = useState(0)
   const seconds = useRef(memory.seconds)
   const indexRef = useRef(index)
   indexRef.current = index
-  const playing = clipsApi.play.centerPlaying && clipsApi.play.audible === 'center' && clipsApi.play.centerGameId === gameId
-  const search = youtubeSearchHref(away, home)
+  const playing = clipsApi.play.centerPlaying && clipsApi.play.audible === 'center' && clipsApi.play.centerGameId === contextId
+  const publishedAfter = nflWeekStart(kickoffs)
+  const ranked: RankedClip[] = list?.status === 'ok' ? rankClips(list.items, signals) : []
 
   useEffect(() => {
-    const saved = readClips()[gameId] ?? []
+    const saved = readClips()[contextId] ?? []
     setClips(saved)
     setLoop(0)
-    const remembered = clipsApi.play.memory[gameId] ?? { index: 0, seconds: 0 }
+    setActive(null)
+    setSignals(readSignals(localStorage, contextId))
+    const remembered = clipsApi.play.memory[contextId] ?? { index: 0, seconds: 0 }
     setIndex(saved.length ? Math.min(remembered.index, saved.length - 1) : 0)
     seconds.current = remembered.seconds
-    clipsApi.setSpot({ gameId, index: remembered.index, seconds: remembered.seconds })
+    clipsApi.setSpot({ gameId: contextId, index: remembered.index, seconds: remembered.seconds })
     return () => {
-      clipsApi.exitCenter(gameId, indexRef.current, seconds.current)
+      clipsApi.exitCenter(contextId, indexRef.current, seconds.current)
     }
-    // The stack resets only when the center game changes.
+    // The stack resets only when the clip context changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId])
+  }, [contextId])
 
   useEffect(() => {
-    clipsApi.setSpot({ gameId, index, seconds: seconds.current })
-  }, [clipsApi, gameId, index])
+    clipsApi.setSpot({ gameId: contextId, index, seconds: seconds.current })
+  }, [clipsApi, contextId, index])
+
+  useEffect(() => {
+    if (!query || !publishedAfter) {
+      setAsked(false)
+      setList(null)
+      return
+    }
+    let stop = false
+    setAsked(true)
+    fetch(clipSearchPath(query, publishedAfter))
+      .then((res) => res.json())
+      .then((raw: unknown) => { if (!stop) setList(clipListFrom(raw)) })
+      .catch(() => { if (!stop) setList({ status: 'unavailable' }) })
+    return () => { stop = true }
+  }, [query, publishedAfter])
 
   const persist = (next: SavedClip[]) => {
     setClips(next)
     const all = readClips()
-    all[gameId] = next
+    all[contextId] = next
     writeClips(all)
   }
 
@@ -181,8 +227,29 @@ export function ClipStack({ gameId, away, home }: { gameId: string; away: string
       return
     }
     setPasteNote(null)
-    if (!clips.some((clip) => clip.videoId === id)) persist([...clips, { videoId: id, title: draft.trim() }])
+    const typed = draft.trim()
+    if (!clips.some((clip) => clip.videoId === id)) persist([...clips, { videoId: id, title: typed }])
     setDraft('')
+    const watch = `https://www.youtube.com/watch?v=${id}`
+    fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(watch)}&format=json`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: unknown) => {
+        if (!body || typeof body !== 'object') return
+        const rec = body as Record<string, unknown>
+        const title = typeof rec.title === 'string' ? rec.title.trim() : ''
+        const channel = typeof rec.author_name === 'string' ? rec.author_name.trim() : ''
+        if (title) {
+          setClips((cur) => {
+            const next = cur.map((clip) => (clip.videoId === id ? { ...clip, title } : clip))
+            const all = readClips()
+            all[contextId] = next
+            writeClips(all)
+            return next
+          })
+        }
+        setSignals(writeSignal(localStorage, contextId, signalFrom({ channelTitle: channel || null, title: title || typed })))
+      })
+      .catch(() => { /* a paste with no oEmbed title stays the text the user typed */ })
   }
 
   const toggle = () => {
@@ -190,26 +257,38 @@ export function ClipStack({ gameId, away, home }: { gameId: string; away: string
     if (playing) {
       const at = clipsApi.timeRead.current?.() ?? seconds.current
       seconds.current = at
-      clipsApi.stopCenter(gameId, index, at)
+      clipsApi.stopCenter(contextId, index, at)
       return
     }
-    clipsApi.startCenter(gameId)
+    setActive(null)
+    clipsApi.startCenter(contextId)
   }
 
-  const pin = (clip: SavedClip) => {
-    const at = clipsApi.timeRead.current?.() ?? seconds.current
-    seconds.current = at
-    clipsApi.pauseForPin(gameId, index, at)
-    focus?.pin({ kind: 'video', id: `video:${clip.videoId}`, videoId: clip.videoId, title: clip.title })
+  const playListed = (id: string) => {
+    if (active === id) {
+      setActive(null)
+      return
+    }
+    if (clipsApi.play.centerPlaying) {
+      const at = clipsApi.timeRead.current?.() ?? seconds.current
+      seconds.current = at
+      clipsApi.stopCenter(contextId, index, at)
+    }
+    setActive(id)
   }
+
+  const note = listNote(list, asked)
 
   return (
-    <section className="clip-stack" aria-label="Clips">
+    <section className="clip-stack desk-section" aria-label="Clips">
       <h3>Clips</h3>
-      <p className="block-fail">Clips: search is unavailable. Paste a link, or open the YouTube search.</p>
-      <p className="news-next">
-        <a className="dest" href={search} target="_blank" rel="noreferrer">Search {away} and {home} on YouTube</a>
-      </p>
+      {query ? (
+        <p className="news-next">
+          <a className="dest" href={youtubeResultsHref(query)} target="_blank" rel="noreferrer">YouTube search: {query}</a>
+        </p>
+      ) : (
+        <p>The week number has not arrived, so this page has no YouTube search link.</p>
+      )}
       <form className="clip-paste" onSubmit={add}>
         <label>
           <span className="sr">Paste a YouTube link</span>
@@ -218,8 +297,29 @@ export function ClipStack({ gameId, away, home }: { gameId: string; away: string
         <button type="submit" className="ghost">Add</button>
       </form>
       {pasteNote && <p className="block-fail">{pasteNote}</p>}
+      {note && <p className={list?.status === 'error' || list?.status === 'unavailable' ? 'block-fail' : undefined}>{note}</p>}
+      {ranked.length > 0 && (
+        <ol className="clip-row">
+          {ranked.map((clip) => {
+            const on = active === clip.videoId
+            return (
+              <li key={clip.videoId} className={on ? 'on' : ''}>
+                {on ? (
+                  <ActiveClip videoId={clip.videoId} start={0} onTime={() => {}} onEnded={() => setActive(null)} />
+                ) : (
+                  <img src={youtubeThumb(clip.videoId)} alt="" width={320} height={180} />
+                )}
+                <span>{clip.title}</span>
+                {clip.channelTitle && <small>{clip.channelTitle}</small>}
+                {clip.because && <small>{clip.because}</small>}
+                <button type="button" className="ghost" onClick={() => playListed(clip.videoId)}>{on ? 'Pause' : 'Play'}</button>
+              </li>
+            )
+          })}
+        </ol>
+      )}
       {clips.length === 0 ? (
-        <p className="muted">No clip pasted for this game. Nothing plays until you add one and press play.</p>
+        <p className="muted">No clip pasted here. Nothing plays until you add one and press play.</p>
       ) : (
         <>
           <button type="button" className="primary" onClick={toggle}>{playing ? 'Pause' : 'Play'}</button>
@@ -245,10 +345,10 @@ export function ClipStack({ gameId, away, home }: { gameId: string; away: string
                   ) : (
                     <img src={youtubeThumb(clip.videoId)} alt="" width={320} height={180} />
                   )}
+                  <span>{clip.title}</span>
                   {!showPlayer && on && seconds.current > 1 && <small>Paused at {stamp(seconds.current)}</small>}
                   <span className="clip-actions">
-                    <button type="button" className="ghost" onClick={() => { seconds.current = on ? seconds.current : 0; setIndex(i) }}>This clip</button>
-                    {focus && <button type="button" className="ghost" onClick={() => pin(clip)}>Pin</button>}
+                    <button type="button" className="ghost" onClick={() => { seconds.current = on ? seconds.current : 0; setActive(null); setIndex(i) }}>This clip</button>
                   </span>
                 </li>
               )
@@ -257,6 +357,30 @@ export function ClipStack({ gameId, away, home }: { gameId: string; away: string
         </>
       )}
     </section>
+  )
+}
+
+export function TeamClipSearch({ team }: { team: string }) {
+  const engine = useOptionalEngine()
+  const [week, setWeek] = useState<number | null>(engine?.d.meta.week ?? null)
+  const [kickoffs, setKickoffs] = useState<string[]>([])
+  useEffect(() => {
+    let stop = false
+    fetchScoreboard()
+      .then(({ board }) => {
+        if (stop) return
+        setKickoffs(board.games.map((game) => game.kickoff))
+        setWeek(board.week || engine?.d.meta.week || null)
+      })
+      .catch(() => { /* the search link waits until a week number exists */ })
+    return () => { stop = true }
+  }, [engine])
+  return (
+    <ClipStack
+      contextId={`team:${team}`}
+      query={week ? teamClipQuery(team, week) : null}
+      kickoffs={kickoffs}
+    />
   )
 }
 
