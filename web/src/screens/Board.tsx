@@ -5,7 +5,7 @@ import type { Board as BoardData, BoardGame, GameContext } from '../board/normal
 import { commitTarget } from '../board/search'
 import { useOptionalEngine } from '../dataContext'
 import { DeskFrame } from '../components/DeskFrame'
-import { EmptyState, ShortcutChip, Skeleton } from '../components/glass'
+import { EmptyState, Skeleton } from '../components/glass'
 
 function selectGame(id: string) {
   const next = `#game/${encodeURIComponent(id)}`
@@ -36,7 +36,7 @@ export function Board({ focusId }: { focusId: string | null }) {
         .catch((e: Error) => {
           if (stop) return
           if (first) setError(e.message)
-          else setLineError('the scoreboard did not refresh. The ring is the last board.')
+          else setLineError('the scoreboard did not refresh. This is the last board.')
         })
     }
     pull(true)
@@ -131,21 +131,6 @@ export function Board({ focusId }: { focusId: string | null }) {
 
   return (
     <section className="screen board">
-      <label className="findbox desk-find">
-        <span className="sr">Find a team</span>
-        <ShortcutChip keys="/" />
-        <input
-          id="board-find"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commit()
-            if (e.key === 'Escape') setQuery('')
-          }}
-          placeholder="Find a team"
-          aria-label="Find a team. Enter opens the first match."
-        />
-      </label>
       <DeskFrame
         board={board}
         source={source}
@@ -154,6 +139,9 @@ export function Board({ focusId }: { focusId: string | null }) {
         missingId={missingId}
         detail={shownDetail}
         detailError={detailError}
+        query={query}
+        onQuery={setQuery}
+        onCommit={commit}
         onSelect={selectGame}
       />
     </section>

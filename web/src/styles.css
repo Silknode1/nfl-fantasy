@@ -1105,6 +1105,174 @@ button.ghost.back { margin-left: auto; }
   from { opacity: 0.9; transform: translate(0, 0) scale(1); }
   to { opacity: 0; transform: translate(var(--x), var(--y)) scale(0.4); }
 }
+.app.games-desk {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'mast' 'nav' 'main' 'foot';
+}
+.app.games-desk .nav {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  position: static;
+  top: auto;
+  padding: 8px 10px;
+  gap: 4px;
+}
+.app.games-desk .nav-scroll {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+}
+.app.games-desk .nav a { margin: 0; white-space: nowrap; }
+.app.games-desk .nav .fresh { margin: 0 0 0 auto; padding: 8px 12px; }
+.app.games-desk .main { font-size: 18px; }
+.app.games-desk .game-sheet h3,
+.app.games-desk .game-shelf h3 { font-size: 22px; }
+.app.games-desk .game-sheet p,
+.app.games-desk .game-sheet li,
+.app.games-desk .game-shelf p,
+.app.games-desk .game-shelf li { font-size: 18px; line-height: 1.4; }
+
+.ticker { display: grid; gap: 8px; margin: 4px 0 16px; }
+.ticker-row { display: flex; gap: 8px; align-items: stretch; min-width: 0; }
+.ticker-fixed { display: flex; gap: 8px; flex: 0 0 auto; }
+.ticker-viewport { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.ticker-viewport.is-running { overflow: hidden; }
+.ticker-track { display: flex; width: max-content; will-change: transform; }
+.ticker-seg { display: flex; gap: 8px; padding-right: 8px; }
+.tick {
+  position: relative;
+  flex: 0 0 168px;
+  width: 168px;
+  min-height: 64px;
+  padding: 8px 16px 7px;
+  border: 0;
+  border-radius: 14px;
+  color: #fff;
+  cursor: pointer;
+  text-align: center;
+}
+.tick-line {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.tick-line .away { text-align: right; }
+.tick-line .mid { text-align: center; }
+.tick-line .home { text-align: left; }
+.tick-sub { display: flex; flex-direction: column; align-items: center; min-height: 1.7em; line-height: 1.15; }
+.tick-sub .spread { font-size: 13px; font-weight: 650; }
+.tick-sub .status { font-size: 11px; font-weight: 650; letter-spacing: 0.01em; }
+.tick.is-live { outline: 2px solid #ffe08a; outline-offset: 2px; }
+.tick.is-on { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tick.is-dim { opacity: 0.42; }
+.tick .roster-mark { top: 5px; right: 5px; width: 8px; height: 8px; }
+
+.game-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 14px;
+  align-items: start;
+}
+.game-stage:has(.game-shelf.is-collapsed) { grid-template-columns: minmax(0, 1fr) 56px; }
+.game-sheet { border-radius: 28px 22px 26px 18px; min-width: 0; }
+.game-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(220px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+.game-main, .game-side { min-width: 0; }
+.desk-section {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px 12px;
+  margin: 0 0 12px;
+  background: color-mix(in oklab, var(--panel-2) 72%, transparent);
+}
+.desk-section h3 { margin-bottom: 8px; }
+.spread-section { min-height: 92px; }
+.spread-figure {
+  margin: 0;
+  font-size: 2.6rem;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.game-shelf {
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+}
+.game-shelf.is-collapsed { padding: 8px; }
+.shelf-collapse, .shelf-tab, .pin-game {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 650;
+}
+.pin-game { width: auto; font-size: 13px; }
+.shelf-tab { background: color-mix(in oklab, var(--accent) 10%, transparent); }
+.shelf-pins, .shelf-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.shelf-pins li, .shelf-list li { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.shelf-news { display: grid; gap: 8px; margin-bottom: 8px; }
+.shelf-news select, .shelf-news input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  padding: 6px 8px;
+}
+
+.win-graph { margin: 0; }
+.win-graph svg { width: 100%; height: auto; display: block; }
+.win-graph .axis-title { fill: var(--text); font-size: 20px; font-weight: 650; }
+.win-graph .axis-tick, .win-graph .axis-q { fill: var(--text); font-size: 16px; }
+.win-graph .axis-sub { fill: var(--muted); font-size: 14px; }
+.win-graph .win-label { fill: var(--text); font-size: 22px; font-weight: 700; }
+.win-graph .grid { stroke: var(--line); stroke-width: 1; }
+.win-graph .grid-mid { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.win-graph .win-line-path { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.win-graph .win-latest { fill: var(--accent); }
+
+.field-diagram { width: min(100%, 280px); height: auto; display: block; margin: 4px 0; }
+.field-grass { fill: color-mix(in oklab, var(--accent) 16%, transparent); stroke: var(--text); }
+.field-goal, .field-mid { stroke: var(--muted); }
+.field-drive { stroke: var(--muted); stroke-dasharray: 3 3; }
+.field-play { stroke: var(--accent); stroke-width: 3; }
+.field-dot, .field-end { fill: var(--text); }
+.field-lab { fill: var(--text); font-size: 12px; }
+
+@media (max-width: 960px) {
+  .game-stage, .game-stage:has(.game-shelf.is-collapsed), .game-cols { grid-template-columns: minmax(0, 1fr); }
+  .game-shelf { position: static; max-height: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-viewport { overflow-x: auto !important; }
+  .ticker-track { transform: none !important; }
+}
+
 @keyframes stamp {
   from { transform: scale(1.18); opacity: 0; }
   to { transform: none; opacity: 1; }
