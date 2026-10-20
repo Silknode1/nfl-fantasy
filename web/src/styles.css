@@ -1077,6 +1077,37 @@ button.ghost.back { margin-left: auto; }
   .grade-lg { animation: stamp 480ms cubic-bezier(0.22, 1.2, 0.36, 1) both; }
 }
 
+/* News (#news) and League (#league). Names below are not used on Games. */
+.news-rule { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 0; }
+.news-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.news-cols .news-card h3 { font-size: 20px; line-height: 1.25; }
+.news-cols .news-preview { font-size: 14px; line-height: 1.45; color: var(--muted); margin: 6px 0 0; }
+
+.title-board { list-style: none; margin: 10px 0 0; padding: 0; }
+.title-team { display: grid; grid-template-columns: minmax(140px, 200px) minmax(0, 1fr); gap: 4px 16px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--grid); }
+.title-team h3 { font-size: 16px; }
+.title-team.mine { background: rgba(192, 132, 252, 0.12); border-radius: 10px; }
+.title-team.mine h3 { color: var(--accent); }
+.title-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; }
+.title-stats div { min-width: 52px; }
+.title-stats dt { color: var(--muted); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+.title-stats dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 650; }
+.league-grid { width: 100%; font-variant-numeric: tabular-nums; }
+.league-grid .league-name { text-align: left; font-weight: 650; }
+.league-grid tr.mine .league-name { color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); background: rgba(192, 132, 252, 0.14); }
+
+.league-grid { border-collapse: collapse; border-spacing: 0; }
+.league-grid th, .league-grid td { padding: 0; text-align: center; }
+.league-grid thead th { padding: 8px 6px; color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+.league-grid .league-name { padding: 8px 10px; white-space: nowrap; }
+.league-grid .league-cell { font-weight: 650; min-width: 44px; height: 40px; padding: 8px 4px; }
+.league-grid .league-cell.dark { color: var(--accent-ink); }
+
+@media (max-width: 760px) {
+  .news-cols { grid-template-columns: 1fr; }
+  .title-team { grid-template-columns: 1fr; }
+}
+
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .lift:hover, .player-card:hover, .slate-jump:hover, .rank-row:hover, .wrow:hover, .erow:hover, .stand:hover, .pulse-list li.pick:hover, .skill-row:hover, .trade-item:hover, .notebook:hover {
     transform: translateY(-2px) scale(1.02);
