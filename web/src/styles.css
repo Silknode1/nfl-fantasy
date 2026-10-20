@@ -1083,15 +1083,12 @@ button.ghost.back { margin-left: auto; }
 .news-cols .news-card h3 { font-size: 20px; line-height: 1.25; }
 .news-cols .news-preview { font-size: 14px; line-height: 1.45; color: var(--muted); margin: 6px 0 0; }
 
-.title-board { list-style: none; margin: 10px 0 0; padding: 0; }
-.title-team { display: grid; grid-template-columns: minmax(140px, 200px) minmax(0, 1fr); gap: 4px 16px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--grid); }
-.title-team h3 { font-size: 16px; }
-.title-team.mine { background: rgba(192, 132, 252, 0.12); border-radius: 10px; }
-.title-team.mine h3 { color: var(--accent); }
-.title-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; }
-.title-stats div { min-width: 52px; }
-.title-stats dt { color: var(--muted); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
-.title-stats dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 650; }
+.title-board { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 8px; }
+.title-board th, .title-board td { padding: 7px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+.title-board thead th { color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+.title-board .league-name { text-align: left; font-weight: 650; }
+.title-team.mine { background: rgba(192, 132, 252, 0.12); }
+.title-team.mine .league-name { color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
 .league-grid { width: 100%; font-variant-numeric: tabular-nums; }
 .league-grid .league-name { text-align: left; font-weight: 650; }
 .league-grid tr.mine .league-name { color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); background: rgba(192, 132, 252, 0.14); }
@@ -1105,7 +1102,6 @@ button.ghost.back { margin-left: auto; }
 
 @media (max-width: 760px) {
   .news-cols { grid-template-columns: 1fr; }
-  .title-team { grid-template-columns: 1fr; }
 }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {

@@ -25,38 +25,48 @@ export function League() {
         <h2>Title board</h2>
         <p className="muted small">{STANDINGS_RULE} {SIM_ODDS_NOTE}</p>
         <p className="muted small">{DRIVER_NOTE}</p>
-        <ol className="title-board">
-          {teams.map((t) => {
-            const drv = drivers.get(t.id)
-            const mine = t.id === d.meta.myTeamId
-            const stats: { label: string; value: string; title?: string }[] = [
-              { label: 'Record', value: recordOf(t) },
-              { label: 'Title', value: pct(sim.title[t.id]), title: 'Whole percent from this run of simulate(). About ±2 points between runs.' },
-              { label: 'PF', value: fmt(t.pf, 1) },
-              { label: 'PA', value: fmt(t.pa, 1), title: 'League points against. simulate() does not read this.' },
-              { label: 'Games left', value: drv ? String(drv.gamesLeft) : '–', title: 'Regular-season games from this week through the last regular week.' },
-              { label: 'Lineup', value: drv ? fmt(drv.projPerWeek) : '–', title: 'Mean projected lineup points in the games simulate() still plays.' },
-              { label: 'Spread', value: drv ? fmt(drv.sdPerWeek) : '–', title: 'Mean weekly spread on those lineup scores.' },
-              { label: 'Opponents', value: drv ? fmt(drv.oppPerWeek) : '–', title: 'Mean projected lineup points of the opponents in those same games.' },
-              { label: 'Seed', value: seeds.get(t.id)?.toString() ?? '–', title: 'Current standings place: win percentage, then points for.' },
-              { label: 'Playoffs', value: pct(sim.playoff[t.id]) },
-              { label: 'Bye', value: pct(sim.bye[t.id]) },
-            ]
-            return (
-              <li key={t.id} className={mine ? 'title-team mine' : 'title-team'}>
-                <h3>{t.name}</h3>
-                <dl className="title-stats">
-                  {stats.map((stat) => (
-                    <div key={stat.label} title={stat.title}>
-                      <dt>{stat.label}</dt>
-                      <dd>{stat.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </li>
-            )
-          })}
-        </ol>
+        <div className="table-wrap">
+          <table className="title-board">
+            <thead>
+              <tr>
+                <th className="league-name">Team</th>
+                <th>Record</th>
+                <th title="Whole percent from this run of simulate(). About ±2 points between runs.">Title</th>
+                <th>PF</th>
+                <th title="League points against. simulate() does not read this.">PA</th>
+                <th title="Regular-season games from this week through the last regular week.">Games left</th>
+                <th title="Mean projected lineup points in the games simulate() still plays.">Lineup</th>
+                <th title="Mean weekly spread on those lineup scores.">Spread</th>
+                <th title="Mean projected lineup points of the opponents in those same games.">Opponents</th>
+                <th title="Current standings place: win percentage, then points for.">Seed</th>
+                <th>Playoffs</th>
+                <th>Bye</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teams.map((t) => {
+                const drv = drivers.get(t.id)
+                const mine = t.id === d.meta.myTeamId
+                return (
+                  <tr key={t.id} className={mine ? 'title-team mine' : 'title-team'}>
+                    <th className="league-name" scope="row">{t.name}</th>
+                    <td>{recordOf(t)}</td>
+                    <td>{pct(sim.title[t.id])}</td>
+                    <td>{fmt(t.pf, 1)}</td>
+                    <td>{fmt(t.pa, 1)}</td>
+                    <td>{drv ? drv.gamesLeft : '–'}</td>
+                    <td>{drv ? fmt(drv.projPerWeek) : '–'}</td>
+                    <td>{drv ? fmt(drv.sdPerWeek) : '–'}</td>
+                    <td>{drv ? fmt(drv.oppPerWeek) : '–'}</td>
+                    <td>{seeds.get(t.id) ?? '–'}</td>
+                    <td>{pct(sim.playoff[t.id])}</td>
+                    <td>{pct(sim.bye[t.id])}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </GlassCard>
       <GlassCard>
         <h2>Position ranks</h2>
