@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FantasyData, Player } from './types'
-import { TradeLab, type TradeBoard, type TradeEval } from './engine/trade'
+import { composeTradeBoard, TradeLab, type TradeBoard, type TradeEval } from './engine/trade'
 import { leagueRanks, type Ranks } from './engine/lineup'
 import { tradeTable, type TradeValue } from './engine/value'
 import { makeNoise, simulate, type Noise, type SimResult } from './engine/sim'
@@ -24,7 +24,6 @@ export interface Engine {
 }
 
 const keyOf = (ev: TradeEval) => `${ev.trade.partnerId}|${ev.trade.give.map((p) => p.id).join(',')}|${ev.trade.get.map((p) => p.id).join(',')}`
-const worth = (ev: TradeEval) => ev.score * ev.acceptance * (ev.simpler ? 0.75 : 1)
 
 export function useEngine(d: FantasyData | null): Engine | null {
   const core = useMemo(() => {
@@ -60,16 +59,13 @@ export function useEngine(d: FantasyData | null): Engine | null {
       if (!alive) return
       const deep: TradeBoard = { '1for1': [], '2for1': [], '3for1': [], reach: [] }
       for (const k of ['1for1', '2for1', '3for1', 'reach'] as const) {
-        deep[k] = raw[k].slice(0, k === 'reach' ? 6 : 10).map(core.deepen)
-        // Within a shape, packages where every piece earns its place come before ones a smaller offer matches.
-        if (k !== 'reach') deep[k].sort((a, b) => Number(!!a.simpler) - Number(!!b.simpler) || worth(b) - worth(a))
+        const graded = raw[k].map(core.deepen)
+        deep[k] = composeTradeBoard(graded, core.lab.qbNeeded, k === 'reach' ? 6 : 10)
         await new Promise((r) => setTimeout(r, 0))
       }
       const seen = new Set<string>()
-      const best = [...deep['1for1'], ...deep['2for1'], ...deep['3for1']]
-        .sort((a, b) => worth(b) - worth(a))
-        .filter((ev) => (seen.has(keyOf(ev)) ? false : (seen.add(keyOf(ev)), true)))
-        .slice(0, 12)
+      const pool = [...deep['1for1'], ...deep['2for1'], ...deep['3for1']].filter((ev) => (seen.has(keyOf(ev)) ? false : (seen.add(keyOf(ev)), true)))
+      const best = composeTradeBoard(pool, core.lab.qbNeeded, 12)
       if (!alive) return
       setProgress(core.lab.searched)
       setBoard(deep)

@@ -1,5 +1,6 @@
 import type { FantasyData, Player, Pos } from '../types'
 import { ACTIVE_ROSTER, leagueRanks, outlook, playerValue, rosters as buildRosters, type Ranks, type TeamOutlook } from './lineup'
+import { lineupNeeds, qbIsShort, type LineupNeed } from './needs'
 import { simulate, type Noise, type SimResult } from './sim'
 
 export interface Trade {
@@ -42,6 +43,34 @@ export function tradeScore(deltaPpw: number, titleDeltaPp?: number): number {
   return deltaPpw + 0.2 * (titleDeltaPp ?? 0)
 }
 
+export function acquiresQuarterback(t: Trade): boolean {
+  return t.get.some((p) => p.pos === 'QB')
+}
+
+/**
+ * Skill-position targets, ranked by the lineup score (weekly points + 0.2 × title-odds points).
+ * Acceptance is not part of the order. A quarterback is acquired only when the roster is short a QB,
+ * and then as one row, so the list stays a skill board. Giving a QB to get a skill player stays here.
+ */
+export function composeTradeBoard(deals: TradeEval[], qbNeeded: boolean, limit: number): TradeEval[] {
+  const ordered = [...deals].sort((a, b) => b.score - a.score || b.me.delta - a.me.delta)
+  const seen = new Set<string>()
+  const unique: TradeEval[] = []
+  for (const ev of ordered) {
+    const key = [...ev.trade.get].map((p) => p.id).sort().join('+')
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(ev)
+  }
+  const skill = unique.filter((ev) => !acquiresQuarterback(ev.trade))
+  const qb = unique.filter((ev) => acquiresQuarterback(ev.trade))
+  if (!qbNeeded || qb.length === 0) return skill.slice(0, limit)
+  const head = skill.slice(0, Math.max(limit - 1, 0))
+  const topQb = qb[0]
+  if (!topQb) return head
+  return [...head, topQb].slice(0, limit)
+}
+
 export class TradeLab {
   d: FantasyData
   from: number
@@ -51,6 +80,8 @@ export class TradeLab {
   baseOutlook: Map<number, TeamOutlook>
   myId: number
   replacement: Map<string, number>
+  needs: LineupNeed[]
+  qbNeeded: boolean
   searched = 0
 
   constructor(d: FantasyData) {
@@ -68,6 +99,8 @@ export class TradeLab {
         return [pos, seen[n - 1] ?? 0]
       }),
     )
+    this.needs = lineupNeeds(d)
+    this.qbNeeded = qbIsShort(this.needs)
   }
 
   v(p: Player) {
@@ -316,20 +349,22 @@ export class TradeLab {
     return ev
   }
 
-  /** Best deals of one shape: expected gain (my gain x acceptance), one deal per target player. */
+  /**
+   * Best deals of one shape, one per target player.
+   * Ranked by the lineup score. Acceptance is not a factor. Skill targets fill the list;
+   * a quarterback target is added only when the needs list is short a QB.
+   */
   pick(found: TradeEval[], limit: number): TradeEval[] {
-    const worth = (e: TradeEval) => e.me.delta * e.acceptance * (e.simpler ? 0.75 : 1)
-    const sorted = [...found].sort((x, y) => worth(y) - worth(x))
+    const sorted = [...found].sort((a, b) => b.score - a.score || b.me.delta - a.me.delta)
     const seen = new Set<string>()
-    const out: TradeEval[] = []
+    const unique: TradeEval[] = []
     for (const ev of sorted) {
       const key = ev.trade.get.map((p) => p.id).join('+')
       if (seen.has(key)) continue
       seen.add(key)
-      out.push(ev)
-      if (out.length >= limit) break
+      unique.push(ev)
     }
-    return out
+    return composeTradeBoard(unique, this.qbNeeded, limit)
   }
 
   /** Synchronous search (scripts and tests). Returns the best `limit` deals of each shape. */
@@ -348,13 +383,11 @@ export class TradeLab {
   }
 
   finish(found: TradeBoard, limit: number): TradeBoard {
-    const reach = [...found.reach].sort((a, b) => b.me.delta - a.me.delta)
-    const seen = new Set<string>()
     return {
       '1for1': this.pick(found['1for1'], limit),
       '2for1': this.pick(found['2for1'], limit),
       '3for1': this.pick(found['3for1'], limit),
-      reach: reach.filter((e) => (seen.has(e.trade.get[0].id) ? false : (seen.add(e.trade.get[0].id), true))).slice(0, 8).map((e) => ({ ...e, simpler: undefined })),
+      reach: composeTradeBoard(found.reach, this.qbNeeded, 8).map((e) => ({ ...e, simpler: undefined })),
     }
   }
 
