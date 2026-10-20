@@ -1,6 +1,6 @@
 # Decision model: how the Carney Carnival desk decides
 
-Last verified against the code: 2026-10-18. Code wins over this doc. If they disagree, fix the doc.
+Last verified against the code: 2026-10-20. Code wins over this doc. If they disagree, fix the doc.
 Tags: **[V]** verified in code or data · **[A]** assumption, never tested · **[P]** planned, not built
 
 ## League (ESPN 1065732, "The Creature Conglomerate") [V]
@@ -40,21 +40,24 @@ Tags: **[V]** verified in code or data · **[A]** assumption, never tested · **
 - **Simulation** (`sim.ts`): 3,000 seasons with fixed random draws (seed 20261011).
   - Team week score = projected lineup points + sd × z + 5 × season-long strength error. Played weeks use actual points.
   - Title odds move about ±2 points between data refreshes, even when nothing important changed.
-- **Trades** (`trade.ts`):
+- **Trades** (`trade.ts`, `needs.ts`):
   - Search: 1-for-1, 2-for-1 and 3-for-1, about 10,000 candidates.
   - Rosters made legal by dropping the lowest-value player, or adding the 5th-best free agent for each open spot.
   - Every piece offered must be worth 3.5+ pts/week. Each side must keep a QB and a TE.
-  - Score = Δ weighted pts/week + 0.2 × Δ title odds (points). Grade cutoffs: A+ ≥ 4, A ≥ 3, A- ≥ 2.2, B+ ≥ 1.5, B ≥ 1.0, B- ≥ 0.6, C+ ≥ 0.25, C ≥ −0.25, … F < −2.2 [A]. The two terms overlap, because title odds are computed from the same weekly points.
-  - Acceptance = logistic(−0.8 + 1.0 × partner lineup Δ + 0.3 × ESPN-perceived value Δ), with a 1.15 premium on what the partner gives up, clipped to 3–95%. **Never validated** [A].
+  - Score = Δ weighted pts/week + 0.2 × Δ title odds (points). Grade cutoffs: A+ ≥ 4, A ≥ 3, A- ≥ 2.2, B+ ≥ 1.5, B ≥ 1.0, B- ≥ 0.6, C+ ≥ 0.25, C ≥ −0.25, … F < −2.2 [A]. The two terms overlap, because title odds are computed from the same weekly points. The letter grade still uses this score.
+  - The board order is that score inside a skill-position tier. The player received is RB, WR, or TE. A QB target is one extra row, and only when `lineupNeeds` says the lineup is short a QB. Giving a QB to receive a skill player stays in the skill tier. Acceptance does not sort the board.
+  - Needs (`lineupNeeds`): injury or play probability under 75% (weighted lineup points lost if that starter leaves), a bye inside the value window (that week's lineup hit, divided into the weighted per-week total), and a hole (the starter's weighted pts/week below the league median at that slot). The name is the player who would leave.
+  - Acceptance = logistic(−0.8 + 1.0 × partner lineup Δ + 0.3 × ESPN-perceived value Δ), with a 1.15 premium on what the partner gives up, clipped to 3–95%. **Never validated** [A]. Shown as an estimate. It is a floor for recommended deals (at or under 10% are dropped) and it still ranks counteroffers.
     - The intercept alone gives 31%: of the Stevenson 3-for-1's 38%, about 31 points are the constant.
     - The value is computed in the browser and **never saved**, so past offers' predictions must be rebuilt from the snapshot before each offer.
   - Double count, worked example (Stevenson 3-for-1): 1.33 pts/wk + 0.2 × 2.8 title points = 1.89, a B+. On weekly points alone it would be a B.
-  - Ranking = my gain × acceptance. Counteroffers: best package per subset of the original ask that adds ≥ 0.5 pts/week at ≥ 30% acceptance. Deals under 10% are flagged "likely decline".
+  - Counteroffers: best package per subset of the original ask that adds ≥ 0.5 pts/week at ≥ 30% acceptance. Deals under 10% are flagged "likely decline".
   - The partner's title odds are not considered, so helping a rival scores the same as helping a 0-5 team.
 - **Waivers** (`waivers.ts`):
-  - Score = 0.4 × fit + 0.35 × hype + 0.15 × role trend + 0.1 × value + 0.08 handcuff bonus [A].
-  - Fit counts starting points only, so a deep bench makes every add look like zero.
-  - FAAB bid = budget share by rank (22%, 12%, 6%, 3%, 1%) [A].
+  - Points per week = change in the best lineup's weighted points if the player is added and nobody else is cut. The starter displaced most often is who leaves that slot. The roster cut is the lowest bench player and is not subtracted. [V]
+  - The board sorts by that delta, or on screen by within-position rank, hype, fit, or role. It does not sort by the blend.
+  - An arbitrary blend is still computed: 0.4 × fit + 0.35 × hype + 0.15 × role trend + 0.1 × the player's own points + 0.08 handcuff. Fit is the lineup delta divided by 3. The weights were never fit to results. The 10% term repeats points already inside the lineup delta, so it does not rank the board. [A]
+  - FAAB bid = a share of the budget by lineup-delta rank (22%, then 12%, 6%, 3%, 1%). The shares are arbitrary. [A]
 
 ## Data sources
 | Source | Kind | Point-in-time? | Notes |
@@ -91,10 +94,10 @@ ID joins: ESPN id ↔ gsis ↔ sleeper id through the `players` table. Some Slee
   - The model's 20–45% acceptance estimates look optimistic against this base rate.
 
 ## Known weaknesses (ranked by decision impact)
-1. The acceptance model is untested and drives every trade ranking.
+1. The acceptance model is untested. It no longer sorts the trade board. It still drops deals at or under 10% and it still ranks counteroffers.
 2. The partner's title odds and rival effects are ignored.
 3. The trade score double-counts (weekly points + title odds derived from them).
-4. Waiver fit ignores insurance and upside; bid shares are arbitrary.
+4. Waiver bids are an arbitrary share of the budget by lineup-delta rank. The 40/35/15/10 blend is still computed and still arbitrary; it does not sort the board.
 5. The availability rules (IR/OUT durations) and backup promotion are crude. When Hurts was out, McKee stayed projected as a backup.
 6. Floor/ceiling ignores the chance of not playing.
 7. Recommendations have gone out on stale data (before a waiver run). Every output needs a freshness stamp.
