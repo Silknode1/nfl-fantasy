@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOptionalEngine } from '../dataContext'
 import { fetchAthlete } from '../espn/load'
 import type { AthleteCard, NewsItem } from '../espn/parse'
 import { PlayerProfile } from '../components/PlayerProfile'
+import { SubmitLink, SubmittedList, useDeskNews } from '../components/SubmitLink'
 import { EmptyState, GlassCard, NewsCard, Skeleton, StatGroup } from '../components/glass'
 import { BackButton, TeamLink } from '../components/links'
+import { newsForPlayer } from '../news/submit'
 
 function EspnPlayer({ id }: { id: string }) {
   const [card, setCard] = useState<AthleteCard | null | 'missing'>(null)
@@ -86,7 +88,24 @@ function EspnPlayer({ id }: { id: string }) {
 
 export function PlayerPage({ id }: { id: string }) {
   const engine = useOptionalEngine()
+  const desk = useDeskNews()
   const fantasy = engine?.d.players.find((p) => p.id === id) ?? null
+  const cast = useMemo(
+    () => (engine?.d.players ?? []).map((p) => ({ id: p.id, name: p.name, nfl: p.nfl })),
+    [engine],
+  )
+  const clubs = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { abbr: string; name: string }[] = []
+    for (const p of cast) {
+      const abbr = p.nfl.toUpperCase()
+      if (!abbr || seen.has(abbr)) continue
+      seen.add(abbr)
+      out.push({ abbr, name: abbr })
+    }
+    return out
+  }, [cast])
+  const saved = newsForPlayer(desk, id)
   return (
     <section className="screen">
       <GlassCard as="article" className="destination">
@@ -95,6 +114,15 @@ export function PlayerPage({ id }: { id: string }) {
         ) : (
           <EspnPlayer id={id} />
         )}
+      </GlassCard>
+      <GlassCard as="article">
+        <h2>Links</h2>
+        <SubmittedList items={saved} empty="No link saved for this player." />
+        <SubmitLink
+          players={cast}
+          clubs={clubs}
+          preset={{ scope: 'player', playerId: id, team: fantasy?.nfl ?? null }}
+        />
       </GlassCard>
     </section>
   )

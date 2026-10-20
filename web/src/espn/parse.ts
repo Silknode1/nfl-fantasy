@@ -52,7 +52,7 @@ export interface NewsItem {
   teams: string[]
   playerId: string | null
   gameId: string | null
-  source: 'jev' | 'espn' | 'scoreboard'
+  source: 'jev' | 'espn' | 'scoreboard' | 'desk'
 }
 
 export interface RosterPlayer {

@@ -8,6 +8,8 @@ import { weekAdvice } from '../engine/advice'
 import { breakingRosterNews } from '../espn/breaking'
 import { fetchNewsBundle } from '../espn/load'
 import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
+import { useDeskNews } from '../components/SubmitLink'
+import { sourceLabel, submittedBreaking } from '../news/submit'
 import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, hot, signed } from '../components/bits'
 import { GlassCard, NewsCard, PlayerCard, StatGroup, SuccessMark } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
@@ -72,7 +74,8 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
 }
 
 function BreakingStrip({ roster }: { roster: Player[] }) {
-  const [items, setItems] = useState<NewsItem[] | null>(null)
+  const [feed, setFeed] = useState<NewsItem[] | null>(null)
+  const desk = useDeskNews()
   const key = roster.map((p) => p.id).join(',')
   useEffect(() => {
     let stop = false
@@ -80,20 +83,25 @@ function BreakingStrip({ roster }: { roster: Player[] }) {
       .then((bundle) => {
         if (stop) return
         const jev = newsFromPlayers(roster)
-        const merged = dedupeNews(linkNewsToPlayers([...jev, ...bundle.espn, ...bundle.scoreboard], roster))
-        setItems(breakingRosterNews(merged, roster, Date.now()))
+        setFeed(dedupeNews(linkNewsToPlayers([...jev, ...bundle.espn, ...bundle.scoreboard], roster)))
       })
-      .catch(() => { if (!stop) setItems([]) })
+      .catch(() => { if (!stop) setFeed([]) })
     return () => { stop = true }
   }, [key, roster])
-  if (!items?.length) return null
+  const items = feed
+    ? dedupeNews([
+      ...breakingRosterNews(dedupeNews(linkNewsToPlayers([...feed, ...desk], roster)), roster, Date.now()),
+      ...submittedBreaking(dedupeNews(linkNewsToPlayers([...feed, ...desk], roster)), roster, Date.now()),
+    ])
+    : submittedBreaking(desk, roster, Date.now())
+  if (!items.length) return null
   return (
     <div className="breaking" aria-label="Breaking injury news">
       {items.slice(0, 3).map((item) => (
         <NewsCard
           key={item.id}
           featured
-          kicker={`Breaking · ${item.source === 'jev' ? 'League news' : item.source === 'scoreboard' ? 'Scoreboard' : 'ESPN'}`}
+          kicker={`Breaking · ${sourceLabel(item.source)}`}
           title={item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.headline}</a> : item.headline}
           summary={item.summary}
         />

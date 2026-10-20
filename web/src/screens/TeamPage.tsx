@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOptionalEngine } from '../dataContext'
 import { fetchClub, fetchClubStats, fetchLastGame, fetchRoster } from '../espn/load'
 import { statLineEmpty, type ClubGame, type ClubProfile, type ClubStats, type RosterPlayer } from '../espn/parse'
@@ -7,6 +7,8 @@ import { InjuryTag, fmt, signed } from '../components/bits'
 import { EmptyState, GlassCard, Skeleton, StatGroup } from '../components/glass'
 import { TeamClipSearch } from '../components/ClipStack'
 import { BackButton, PlayerLink, TeamLink } from '../components/links'
+import { SubmitLink, SubmittedList, useDeskNews } from '../components/SubmitLink'
+import { newsForTeam } from '../news/submit'
 
 function shown(n: number | null, digits = 1): string | null {
   if (n == null) return null
@@ -69,6 +71,24 @@ function FantasySkill({ players }: { players: Player[] }) {
 
 export function TeamPage({ abbr }: { abbr: string }) {
   const engine = useOptionalEngine()
+  const desk = useDeskNews()
+  const cast = useMemo(
+    () => (engine?.d.players ?? []).map((p) => ({ id: p.id, name: p.name, nfl: p.nfl })),
+    [engine],
+  )
+  const clubs = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { abbr: string; name: string }[] = []
+    const add = (code: string) => {
+      const next = code.toUpperCase()
+      if (!next || seen.has(next)) return
+      seen.add(next)
+      out.push({ abbr: next, name: next })
+    }
+    add(abbr)
+    for (const p of cast) add(p.nfl)
+    return out
+  }, [abbr, cast])
   const [club, setClub] = useState<ClubProfile | null | 'missing'>(null)
   const [stats, setStats] = useState<ClubStats | null>(null)
   const [last, setLast] = useState<ClubGame | null>(null)
@@ -178,6 +198,12 @@ export function TeamPage({ abbr }: { abbr: string }) {
         {club.next ? <GameRow game={club.next} abbr={club.abbr} label="Next game" /> : <article className="club-game"><p>No next game on this pull.</p><p><a className="dest" href="#games">Open the week</a></p></article>}
         {last ? <GameRow game={last} abbr={club.abbr} label="Last game" /> : <article className="club-game"><p>No completed game on this schedule pull.</p></article>}
       </div>
+
+      <GlassCard as="article">
+        <h2>Links</h2>
+        <SubmittedList items={newsForTeam(desk, club.abbr)} empty={`No link saved for ${club.abbr}.`} />
+        <SubmitLink players={cast} clubs={clubs} preset={{ scope: 'team', team: club.abbr, playerId: null }} />
+      </GlassCard>
 
       <GlassCard as="article">
         <h2>Skill players</h2>

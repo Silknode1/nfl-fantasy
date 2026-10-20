@@ -1,10 +1,10 @@
 /**
- * The Games ticker: the whole week as three or four horizontal rows of bubbles.
+ * The Games ticker: the whole week as one or two full-width rows of bubbles.
  * Every number on a bubble is copied from the scoreboard. A missing quote is an empty slot.
  */
 
 import { formatLine, type BoardGame } from './normalize'
-import { liveFirst } from './search'
+import { liveFirst, searchView } from './search'
 
 export type TickDirection = 'left' | 'right'
 
@@ -26,11 +26,20 @@ export interface BubbleFacts {
   live: boolean
 }
 
-/** Four rows once the week is longer than twelve games, else three. Tiny slates get one row per game. */
+/** One row through seven games, two rows after that. The band is always the full desk width. */
 export function tickerRowCount(games: number): number {
   if (games <= 0) return 0
-  if (games < 3) return games
-  return games > 12 ? 4 : 3
+  return games <= 7 ? 1 : 2
+}
+
+export interface TickerBand {
+  rows: number
+  fullWidth: true
+}
+
+/** Encodes the desk rule: at most two rows, and the band spans the width under the Games nav. */
+export function tickerBand(games: number): TickerBand {
+  return { rows: tickerRowCount(games), fullWidth: true }
 }
 
 /** Live-first order, cut into balanced contiguous rows, so live games land in the top rows. */
@@ -79,6 +88,31 @@ export function shouldAnimate(contentWidth: number, viewportWidth: number, reduc
   return !reducedMotion && viewportWidth > 0 && contentWidth > 0 && contentWidth <= viewportWidth
 }
 
+/**
+ * The id painted on a bubble. The looping copy carries the same id as the real node,
+ * so either press resolves to that game. An unknown id selects nothing.
+ */
+export function tickerTargetFromNode(gameId: string | null | undefined, games: { id: string }[]): string | null {
+  const id = (gameId ?? '').trim()
+  if (!id || !games.some((game) => game.id === id)) return null
+  return id
+}
+
+/** Enter and Space activate a bubble. Arrows only move focus along the row. */
+export function keyActivatesTicker(key: string): boolean {
+  return key === 'Enter' || key === ' ' || key === 'Spacebar'
+}
+
+/**
+ * A ticker press sets the selected game. Search dims bubbles; it does not drop the press,
+ * and a loop copy uses the same id as the real bubble.
+ */
+export function selectedAfterTicker(games: BoardGame[], query: string, activatedId: string | null | undefined): string | null {
+  const id = tickerTargetFromNode(activatedId, games)
+  if (!id) return null
+  return searchView(games, query, id).selectedId
+}
+
 function kickoffShort(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
@@ -86,7 +120,7 @@ function kickoffShort(iso: string): string {
 }
 
 export function spreadSlot(game: BoardGame): string | null {
-  const line = game.quote?.home.line
+  const line = game.quote?.homeSpread ?? game.quote?.home.line ?? null
   if (line == null) return null
   return `${game.home.abbr} ${formatLine(line)}`
 }
@@ -138,4 +172,68 @@ export function scrimFor(colors: string[]): number {
     if (colors.every((hex) => whiteContrast(hex, a) >= 4.5)) return Math.round(a * 100) / 100
   }
   return 0.9
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n))
+}
+
+function toHsl(r: number, g: number, b: number): [number, number, number] {
+  const R = r / 255
+  const G = g / 255
+  const B = b / 255
+  const max = Math.max(R, G, B)
+  const min = Math.min(R, G, B)
+  const l = (max + min) / 2
+  if (max === min) return [0, 0, l]
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  let h = 0
+  if (max === R) h = (G - B) / d + (G < B ? 6 : 0)
+  else if (max === G) h = (B - R) / d + 2
+  else h = (R - G) / d + 4
+  return [h * 60, s, l]
+}
+
+function fromHsl(h: number, s: number, l: number): string {
+  const H = ((h % 360) + 360) % 360
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((H / 60) % 2) - 1))
+  const m = l - c / 2
+  let r = 0
+  let g = 0
+  let b = 0
+  if (H < 60) { r = c; g = x; b = 0 }
+  else if (H < 120) { r = x; g = c; b = 0 }
+  else if (H < 180) { r = 0; g = c; b = x }
+  else if (H < 240) { r = 0; g = x; b = c }
+  else if (H < 300) { r = x; g = 0; b = c }
+  else { r = c; g = 0; b = x }
+  const hex = (n: number) => Math.round(clamp(n + m, 0, 1) * 255).toString(16).padStart(2, '0')
+  return `#${hex(r)}${hex(g)}${hex(b)}`
+}
+
+/** A lighter and a darker stop of the same hue. One team side is never a flat swatch. */
+export function siblingStops(hex: string): { light: string; deep: string } {
+  const c = rgb(hex) ?? [125, 138, 155]
+  const [h, s, l] = toHsl(c[0], c[1], c[2])
+  const sat = clamp(Math.max(s, 0.42), 0, 1)
+  return {
+    light: fromHsl(h, sat, clamp(l + 0.2, 0.28, 0.8)),
+    deep: fromHsl(h, clamp(sat + 0.06, 0, 1), clamp(l - 0.24, 0.08, 0.48)),
+  }
+}
+
+/**
+ * One treatment everywhere: each team is a two-stop wash of its own hue,
+ * blended on a soft diagonal with a dark mid split, then a contrast scrim.
+ */
+export function bubbleBackground(away: string, home: string, scrim: number): string {
+  const a = siblingStops(away)
+  const h = siblingStops(home)
+  const k = clamp(scrim, 0, 1)
+  return [
+    `linear-gradient(rgba(0,0,0,${k}), rgba(0,0,0,${k}))`,
+    `linear-gradient(118deg, ${a.light} 0%, ${a.deep} 34%, rgba(7,7,12,0.55) 50%, ${h.deep} 66%, ${h.light} 100%)`,
+  ].join(', ')
 }

@@ -4,8 +4,10 @@ import { fetchNewsBundle } from '../espn/load'
 import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
 import { EmptyState, GlassCard, NewsCard, Skeleton } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
+import { SubmitLink, useDeskNews } from '../components/SubmitLink'
 import { DATE_LABEL, filterNews, POPULARITY_LABEL, UNTAGGED_RULE, type NewsFilter, type PopularityPlayer } from '../news/feed'
 import { previewText } from '../news/preview'
+import { mergeDeskNews, newsForLeague, sourceLabel } from '../news/submit'
 
 const FILTERS: { id: NewsFilter; label: string }[] = [
   { id: 'popularity', label: 'Popularity' },
@@ -33,7 +35,7 @@ function Item({ item }: { item: NewsItem }) {
   const nextPlayer = item.playerId
   const nextTeam = item.teams[0]
   const preview = previewText(item.summary, item.headline)
-  const source = item.source === 'jev' ? 'League news' : item.source === 'scoreboard' ? 'Scoreboard' : 'ESPN'
+  const source = sourceLabel(item.source)
   return (
     <NewsCard
       kicker={`${source}${stamp ? ` · ${stamp}` : ''}`}
@@ -66,6 +68,7 @@ export function NewsPage() {
   const [items, setItems] = useState<NewsItem[] | null>(null)
   const [gap, setGap] = useState<string | null>(null)
   const [filter, setFilter] = useState<NewsFilter>('date')
+  const desk = useDeskNews()
 
   useEffect(() => {
     let stop = false
@@ -88,11 +91,30 @@ export function NewsPage() {
     return () => { stop = true }
   }, [engine])
 
+  const roster = engine?.d.players
   const players = useMemo<PopularityPlayer[]>(
-    () => (engine?.d.players ?? []).map((p) => ({ id: p.id, own: p.own, adds: p.adds })),
-    [engine],
+    () => (roster ?? []).map((p) => ({ id: p.id, own: p.own, adds: p.adds })),
+    [roster],
   )
-  const shown = useMemo(() => (items ? filterNews(items, filter, players) : []), [items, filter, players])
+  const cast = useMemo(
+    () => (roster ?? []).map((p) => ({ id: p.id, name: p.name, nfl: p.nfl })),
+    [roster],
+  )
+  const clubs = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { abbr: string; name: string }[] = []
+    for (const p of cast) {
+      const abbr = p.nfl.toUpperCase()
+      if (!abbr || seen.has(abbr)) continue
+      seen.add(abbr)
+      out.push({ abbr, name: abbr })
+    }
+    return out
+  }, [cast])
+  const shown = useMemo(
+    () => filterNews(newsForLeague(mergeDeskNews(items ?? [], desk)), filter, players),
+    [items, desk, filter, players],
+  )
 
   return (
     <section className="screen">
@@ -115,9 +137,10 @@ export function NewsPage() {
         </div>
         <p className="news-rule">{NOTE[filter]}</p>
         {gap && <p>{gap}</p>}
+        <SubmitLink players={cast} clubs={clubs} />
       </GlassCard>
-      {items === null && <Skeleton variant="rows" label="Loading headlines" />}
-      {items && shown.length === 0 && (
+      {items === null && shown.length === 0 && <Skeleton variant="rows" label="Loading headlines" />}
+      {items !== null && shown.length === 0 && (
         <EmptyState title="No headlines in this filter" body="Nothing in this cut of the pull. Another filter may still have lines." />
       )}
       {shown.length > 0 && (

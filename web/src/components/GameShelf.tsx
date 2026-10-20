@@ -4,7 +4,9 @@ import { fetchNewsBundle } from '../espn/load'
 import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
 import type { BoardGame } from '../board/normalize'
 import { filterNews, newsTeams, pinGameId, readPinnedGames, unpinGameId, writePinnedGames } from '../board/shelf'
+import { mergeDeskNews, newsForGame } from '../news/submit'
 import { PlayerLink } from './links'
+import { useDeskNews } from './SubmitLink'
 
 export interface ShelfPlayer {
   id: string
@@ -43,6 +45,7 @@ export function GameShelf({
   const [newsGap, setNewsGap] = useState<string | null>(null)
   const [team, setTeam] = useState('')
   const [text, setText] = useState('')
+  const desk = useDeskNews()
 
   useEffect(() => {
     let stop = false
@@ -75,8 +78,10 @@ export function GameShelf({
     setPins(next)
     writePinnedGames(store(), next)
   }
-  const shown = news ? filterNews(news, { team, text }) : []
-  const teams = news ? newsTeams(news) : []
+  const gameTeams = game ? [game.away.abbr, game.home.abbr] : []
+  const pool = mergeDeskNews(news ?? [], newsForGame(desk, gameTeams))
+  const shown = filterNews(pool, { team, text })
+  const teams = newsTeams(pool)
 
   return (
     <aside className={collapsed ? 'game-shelf is-collapsed' : 'game-shelf'} aria-label="Shelf">
@@ -135,7 +140,7 @@ export function GameShelf({
                 <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Filter headlines" aria-label="Filter headlines" />
               </label>
               {newsGap && <p>{newsGap}</p>}
-              {news === null && !newsGap && <p className="muted">League news has not arrived.</p>}
+              {news === null && shown.length === 0 && !newsGap && <p className="muted">League news has not arrived.</p>}
               {news !== null && shown.length === 0 && !newsGap && <p className="muted">No headline matches.</p>}
               <ul className="shelf-list">
                 {shown.map((item) => (
