@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Player, Pos } from '../types'
 import { useEngineCtx } from '../dataContext'
 import { useNumbered } from '../focus'
+import { lineupNeeds, type LineupNeed } from '../engine/needs'
 import { DECLINE_BELOW, KIND_LABEL, kindOf, type TradeEval } from '../engine/trade'
 import { tradeSummary, verdict, ordinal } from '../engine/summary'
 import { Avatar, GradeMark, InjuryTag, fmt, pct, signed } from '../components/bits'
@@ -174,17 +175,27 @@ function jumpBuilder() {
   window.setTimeout(() => el.querySelector('select')?.focus(), reduce ? 0 : 280)
 }
 
+function reasonText(n: LineupNeed): string {
+  if (n.reason === 'bye') return `bye week ${n.leaves.bye}`
+  if (n.reason === 'injury') {
+    const status = n.leaves.inj ? n.leaves.inj.toLowerCase().replaceAll('_', ' ') : 'injury'
+    return n.leaves.playP != null ? `${status}, ${Math.round(n.leaves.playP * 100)}% to play` : status
+  }
+  return 'below the median starter'
+}
+
 type Tab = 'best' | '2for1' | '3for1' | 'reach' | '1for1'
 const TABS: { id: Tab; label: string; hint: string }[] = [
-  { id: 'best', label: 'Best', hint: 'The strongest deals of any shape, ranked by how much each helps you times the chance they accept.' },
+  { id: 'best', label: 'Best', hint: 'Skill-position deals, ranked by the lineup score: weekly points plus 0.2 times the title-odds change. A quarterback target is one row, and only when the needs list is short a QB. Acceptance is an unvalidated estimate and does not set the order.' },
   { id: '2for1', label: '2-for-1', hint: 'You send two players for one better one. Every piece is a real player they would keep, and the open roster spot is valued as a typical free-agent pickup.' },
   { id: '3for1', label: '3-for-1', hint: 'Three for one, aimed only at players worth 9+ points a week. They must keep all three, so they drop two of their own.' },
   { id: 'reach', label: 'Long shots', hint: 'Consolidations that add 1.5+ starting points a week but that the other manager will probably turn down as offered. Use them as opening asks, then add to the package.' },
-  { id: '1for1', label: '1-for-1', hint: 'Straight swaps.' },
+  { id: '1for1', label: '1-for-1', hint: 'Straight swaps. Skill positions fill the list. A quarterback target appears only when the needs list includes QB.' },
 ]
 
 export function Trades() {
   const { d, trades, board, lab, progress } = useEngineCtx()
+  const needs = useMemo(() => lineupNeeds(d), [d])
   const [tab, setTab] = useState<Tab>('best')
   const [sel, setSel] = useState<TradeEval | null>(null)
   const [custom, setCustom] = useState<TradeEval | null>(null)
@@ -194,7 +205,26 @@ export function Trades() {
   useNumbered(numbered)
   const info = TABS.find((t) => t.id === tab)!
   return (
-    <div className="screen trades">
+    <div className="screen trades" id="trades">
+      <GlassCard className="needs-card" featured lean>
+        <h2>Roster needs</h2>
+        <p className="muted small">
+          Each gap is weighted points per week in the best lineup, the same unit as the trade score. Playoff weeks count 1.5×.
+          The name is the player who would leave that slot.
+        </p>
+        {needs.length === 0 ? (
+          <p>No lineup gap at QB, RB, WR, TE, or flex.</p>
+        ) : (
+          <ul className="needs">
+            {needs.map((n) => (
+              <li key={`${n.slot}-${n.reason}-${n.leaves.id}`}>
+                <span><b>{n.slot}</b> <PlayerLink id={n.leaves.id} name={n.leaves.name} /> would leave</span>
+                <span>{signed(n.gap)} pts/wk · {reasonText(n)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </GlassCard>
       <GlassCard className="trade-list">
         <h2>Recommended trades</h2>
         <div className="seg seg-wrap" role="tablist" aria-label="Deal shape">
@@ -227,7 +257,7 @@ export function Trades() {
                     <span className="ti-line"><span className="muted">Get</span> {ev.trade.get.map((p) => p.name).join(' + ')}</span>
                     <span className="ti-meta">
                       {tab === 'best' && <span className="kind">{KIND_LABEL[kindOf(ev.trade)]}</span>}
-                      {partner.name}, {pct(ev.acceptance)} accept, title {signed(((ev.title?.after ?? 0) - (ev.title?.before ?? 0)) * 100)} pts
+                      {partner.name}, {signed(ev.me.delta)} pts/wk, title {signed(((ev.title?.after ?? 0) - (ev.title?.before ?? 0)) * 100)} pts, {pct(ev.acceptance)} accept (estimate)
                     </span>
                     {ev.simpler && <span className="ti-simpler">{ev.simpler.trade.give.map((p) => p.name).join(' + ')} alone does about as well</span>}
                   </span>
