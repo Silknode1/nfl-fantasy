@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { useEngineCtx } from '../dataContext'
 import { useNumbered } from '../focus'
 import { fmt, pct } from '../components/bits'
 import { GlassCard } from '../components/glass'
 import { DRIVER_NOTE, SIM_ODDS_NOTE, simDrivers } from '../league/drivers'
+import { LEAGUE_SECTION_ORDER, type LeagueSection } from '../league/sections'
 import { rankCell } from '../league/shade'
 import { seedsNow, STANDINGS_RULE, standingsOrder } from '../league/standings'
 
@@ -19,8 +20,50 @@ export function League() {
   const drivers = useMemo(() => simDrivers(d, lab.baseOutlook), [d, lab])
   const seeds = useMemo(() => seedsNow(d.teams), [d.teams])
   const n = d.teams.length
-  return (
-    <div className="screen">
+  const blocks: Record<LeagueSection, JSX.Element> = {
+    ranks: (
+      <GlassCard>
+        <h2>Position ranks</h2>
+        <p className="muted small">
+          Same order as the title board. Each cell is the league rank at that spot, from the rest-of-season value of the best starters. 1 is best. Brighter gold is closer to 1.
+        </p>
+        <div className="table-wrap">
+          <table className="league-grid">
+            <thead>
+              <tr>
+                <th className="league-name">Team</th>
+                {KEYS.map((k) => <th key={k}>{LABEL[k]}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {teams.map((t) => {
+                const r = ranks[t.id]
+                const mine = t.id === d.meta.myTeamId
+                return (
+                  <tr key={t.id} className={mine ? 'mine' : undefined}>
+                    <th className="league-name" scope="row">{t.name}</th>
+                    {KEYS.map((k) => {
+                      const shade = rankCell(r[k].rank, n)
+                      return (
+                        <td
+                          key={k}
+                          className={shade.dark ? 'league-cell dark' : 'league-cell'}
+                          style={{ background: shade.background, color: shade.dark ? 'var(--accent-ink)' : undefined }}
+                          title={`${t.name} ${LABEL[k]}: rank ${r[k].rank}, ${fmt(r[k].value)} projected pts/wk`}
+                        >
+                          {r[k].rank}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </GlassCard>
+    ),
+    title: (
       <GlassCard featured lean>
         <h2>Title board</h2>
         <p className="muted small">{STANDINGS_RULE} {SIM_ODDS_NOTE}</p>
@@ -68,46 +111,11 @@ export function League() {
           </table>
         </div>
       </GlassCard>
-      <GlassCard>
-        <h2>Position ranks</h2>
-        <p className="muted small">
-          Same order as the title board. Each cell is the league rank at that spot, from the rest-of-season value of the best starters. 1 is best. Brighter gold is closer to 1.
-        </p>
-        <div className="table-wrap">
-          <table className="league-grid">
-            <thead>
-              <tr>
-                <th className="league-name">Team</th>
-                {KEYS.map((k) => <th key={k}>{LABEL[k]}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {teams.map((t) => {
-                const r = ranks[t.id]
-                const mine = t.id === d.meta.myTeamId
-                return (
-                  <tr key={t.id} className={mine ? 'mine' : undefined}>
-                    <th className="league-name" scope="row">{t.name}</th>
-                    {KEYS.map((k) => {
-                      const shade = rankCell(r[k].rank, n)
-                      return (
-                        <td
-                          key={k}
-                          className={shade.dark ? 'league-cell dark' : 'league-cell'}
-                          style={{ background: shade.background, color: shade.dark ? 'var(--accent-ink)' : undefined }}
-                          title={`${t.name} ${LABEL[k]}: rank ${r[k].rank}, ${fmt(r[k].value)} projected pts/wk`}
-                        >
-                          {r[k].rank}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </GlassCard>
+    ),
+  }
+  return (
+    <div className="screen" data-league-order={LEAGUE_SECTION_ORDER.join(',')}>
+      {LEAGUE_SECTION_ORDER.map((id) => <Fragment key={id}>{blocks[id]}</Fragment>)}
     </div>
   )
 }
