@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchGameSummary, fetchScoreboard } from '../board/load'
 import { pickCenter, rosterCounts, type DeskPlayer } from '../board/desk'
-import { matchGame, type Board as BoardData, type BoardGame, type GameContext } from '../board/normalize'
+import type { Board as BoardData, BoardGame, GameContext } from '../board/normalize'
+import { commitTarget } from '../board/search'
 import { useOptionalEngine } from '../dataContext'
 import { DeskFrame } from '../components/DeskFrame'
 import { EmptyState, ShortcutChip, Skeleton } from '../components/glass'
@@ -59,11 +60,11 @@ export function Board({ focusId }: { focusId: string | null }) {
   const selected = board?.games.find((game) => game.id === (focusId ?? autoId)) ?? null
   const missingId = focusId && board && !board.games.some((game) => game.id === focusId) ? focusId : null
 
-  useEffect(() => {
-    if (!query.trim() || !board) return
-    const hit = board.games.find((game) => matchGame(game, query))
-    if (hit && hit.id !== focusId) selectGame(hit.id)
-  }, [query, board, focusId])
+  const commit = () => {
+    if (!board) return
+    const hit = commitTarget(board.games, query)
+    if (hit) selectGame(hit)
+  }
 
   const signature = selected ? `${selected.id}|${selected.state}|${selected.home.score}|${selected.away.score}|${selected.detail}` : ''
 
@@ -133,7 +134,17 @@ export function Board({ focusId }: { focusId: string | null }) {
       <label className="findbox desk-find">
         <span className="sr">Find a team</span>
         <ShortcutChip keys="/" />
-        <input id="board-find" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a team" aria-label="Find a team" />
+        <input
+          id="board-find"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+            if (e.key === 'Escape') setQuery('')
+          }}
+          placeholder="Find a team"
+          aria-label="Find a team. Enter opens the first match."
+        />
       </label>
       <DeskFrame
         board={board}
