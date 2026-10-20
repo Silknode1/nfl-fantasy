@@ -186,8 +186,11 @@ export function App() {
   const shell = (
     <div className={`${showRail ? 'app' : 'app no-rail'}${onBoard ? ' games-desk' : ''}`}>
       <div className="atmosphere" aria-hidden="true">
-        <span className="orb orb-a" />
-        <span className="orb orb-b" />
+        <span className="lava lava-a" />
+        <span className="lava lava-b" />
+        <span className="lava lava-c" />
+        <span className="lava lava-d" />
+        <span className="lava lava-e" />
       </div>
       <header className="masthead">
         {desk ? (
