@@ -43,6 +43,11 @@ export function makeNoise(teamIds: number[], weeks: number[], sims = 3000, seed 
   return { sims, weeks, teamIds, z, strength }
 }
 
+/** Regular-season games the sim plays: this week through the last regular week. */
+export function remainingGames(d: FantasyData) {
+  return d.games.filter((g) => g.week >= d.meta.week && g.week <= d.meta.regularWeeks)
+}
+
 export interface SimResult {
   playoff: Record<number, number>
   bye: Record<number, number>
@@ -52,9 +57,11 @@ export interface SimResult {
 }
 
 /**
- * Simulate the rest of the season: remaining regular-season games (current week included,
- * using locked actual points where games are done), seeding by wins then points scored,
- * top 6 make it, seeds 1-2 get byes, then Week 15-17 single-elimination.
+ * Simulate the rest of the season. Each team starts from its current wins (a tie is half
+ * a win) and points for. Finished games are not re-scored, and a winner already stored on
+ * a remaining game is not read. Remaining games, this week through the last regular week,
+ * are scored from lineup projections plus noise. Seeding is wins then points scored.
+ * The top `playoffTeams` make it, seeds 1-2 get byes, then the playoff weeks.
  */
 export function simulate(d: FantasyData, rosters: Map<number, Player[]>, noise: Noise, outlooks?: Map<number, TeamOutlook>): SimResult {
   const { week, regularWeeks, lastWeek, playoffTeams } = d.meta
@@ -63,7 +70,7 @@ export function simulate(d: FantasyData, rosters: Map<number, Player[]>, noise: 
   const wIndex = new Map(noise.weeks.map((w, i) => [w, i]))
   const ol = outlooks ?? new Map(ids.map((id) => [id, outlook(rosters.get(id) ?? [], week, regularWeeks, lastWeek)]))
   const base = new Map(d.teams.map((t) => [t.id, { w: t.wins + 0.5 * t.ties, pf: t.pf }]))
-  const games = d.games.filter((g) => g.week >= week && g.week <= regularWeeks)
+  const games = remainingGames(d)
   const nT = ids.length
   const nW = noise.weeks.length
   const res: SimResult = { playoff: {}, bye: {}, title: {}, avgWins: {}, seedDist: {} }
