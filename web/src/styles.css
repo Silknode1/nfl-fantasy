@@ -28,12 +28,12 @@
   --edge: var(--shadow-card);
   --orb-a: rgba(36, 0, 96, 0.45);
   --orb-b: rgba(12, 0, 48, 0.35);
-  /* Sampled from docs/references/desk-background.mp4 — indigo/navy with near-zero green. */
-  --lava-1: rgba(36, 0, 112, 0.55);
-  --lava-2: rgba(24, 0, 80, 0.48);
-  --lava-3: rgba(48, 0, 96, 0.4);
-  --lava-4: rgba(16, 0, 56, 0.5);
-  --lava-5: rgba(28, 8, 72, 0.28);
+  /* Deep purple family — each blob a different shade so crossfades read as color shifts. */
+  --lava-1: rgba(98, 20, 168, 0.78);  /* deep violet */
+  --lava-2: rgba(22, 0, 54, 0.72);    /* near-black purple */
+  --lava-3: rgba(124, 36, 188, 0.62); /* rich purple */
+  --lava-4: rgba(52, 0, 118, 0.7);    /* indigo purple */
+  --lava-5: rgba(78, 18, 132, 0.55);  /* plum */
   --nav-sticky: rgba(12, 12, 18, 0.82);
 }
 
@@ -61,11 +61,11 @@
   --edge: var(--shadow-card);
   --orb-a: rgba(76, 29, 149, 0.14);
   --orb-b: rgba(30, 27, 75, 0.12);
-  --lava-1: rgba(67, 20, 140, 0.22);
-  --lava-2: rgba(49, 16, 110, 0.18);
-  --lava-3: rgba(76, 29, 149, 0.14);
-  --lava-4: rgba(30, 27, 75, 0.16);
-  --lava-5: rgba(91, 33, 182, 0.1);
+  --lava-1: rgba(91, 33, 182, 0.24);
+  --lava-2: rgba(49, 16, 110, 0.2);
+  --lava-3: rgba(109, 40, 217, 0.16);
+  --lava-4: rgba(55, 20, 120, 0.18);
+  --lava-5: rgba(76, 29, 149, 0.12);
   --nav-sticky: rgba(243, 241, 246, 0.9);
 }
 
@@ -119,8 +119,8 @@ p { margin: 0.4em 0; max-width: 72ch; }
   display: block;
   border-radius: 42% 58% 48% 52%;
   filter: blur(72px);
-  opacity: 0.9;
-  will-change: transform;
+  opacity: 0.85;
+  will-change: transform, opacity;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   mix-blend-mode: screen;
@@ -156,7 +156,6 @@ p { margin: 0.4em 0; max-width: 72ch; }
   left: 32%;
   background: radial-gradient(circle at 50% 50%, var(--lava-4), transparent 76%);
   border-radius: 62% 38% 48% 52%;
-  opacity: 0.75;
 }
 .lava-e {
   width: min(40vw, 420px);
@@ -1115,38 +1114,38 @@ button.ghost.back { margin-left: auto; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .lava-a { animation: lava-drift-a 58s ease-in-out infinite alternate; }
-  .lava-b { animation: lava-drift-b 50s ease-in-out infinite alternate; }
-  .lava-c { animation: lava-drift-c 64s ease-in-out infinite alternate; }
-  .lava-d { animation: lava-drift-d 54s ease-in-out infinite alternate; }
-  .lava-e { animation: lava-drift-e 60s ease-in-out infinite alternate; }
+  .lava-a { animation: lava-drift-a 10s ease-in-out infinite alternate; }
+  .lava-b { animation: lava-drift-b 8s ease-in-out infinite alternate; }
+  .lava-c { animation: lava-drift-c 12s ease-in-out infinite alternate; }
+  .lava-d { animation: lava-drift-d 9s ease-in-out infinite alternate; }
+  .lava-e { animation: lava-drift-e 11s ease-in-out infinite alternate; }
 
   @keyframes lava-drift-a {
-    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-    33% { transform: translate3d(7vw, 6vh, 0) scale(1.06) rotate(4deg); }
-    66% { transform: translate3d(2vw, 14vh, 0) scale(0.96) rotate(-3deg); }
-    100% { transform: translate3d(10vw, 4vh, 0) scale(1.03) rotate(6deg); }
+    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); opacity: 0.35; }
+    33% { transform: translate3d(18vw, 14vh, 0) scale(1.18) rotate(12deg); opacity: 1; }
+    66% { transform: translate3d(6vw, 24vh, 0) scale(0.88) rotate(-8deg); opacity: 0.3; }
+    100% { transform: translate3d(22vw, 8vh, 0) scale(1.12) rotate(14deg); opacity: 0.9; }
   }
   @keyframes lava-drift-b {
-    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-    40% { transform: translate3d(-6vw, 10vh, 0) scale(1.07) rotate(-5deg); }
-    100% { transform: translate3d(-10vw, 3vh, 0) scale(0.95) rotate(4deg); }
+    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); opacity: 0.85; }
+    40% { transform: translate3d(-16vw, 20vh, 0) scale(1.2) rotate(-12deg); opacity: 0.25; }
+    100% { transform: translate3d(-22vw, 6vh, 0) scale(0.86) rotate(10deg); opacity: 1; }
   }
   @keyframes lava-drift-c {
-    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-    50% { transform: translate3d(8vw, -10vh, 0) scale(1.08) rotate(7deg); }
-    100% { transform: translate3d(-4vw, -6vh, 0) scale(0.97) rotate(-4deg); }
+    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); opacity: 0.25; }
+    50% { transform: translate3d(18vw, -20vh, 0) scale(1.22) rotate(16deg); opacity: 1; }
+    100% { transform: translate3d(-12vw, -12vh, 0) scale(0.9) rotate(-10deg); opacity: 0.35; }
   }
   @keyframes lava-drift-d {
-    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-    35% { transform: translate3d(-7vw, -5vh, 0) scale(1.1) rotate(-6deg); }
-    70% { transform: translate3d(6vw, 7vh, 0) scale(0.94) rotate(5deg); }
-    100% { transform: translate3d(-3vw, 10vh, 0) scale(1.04) rotate(-3deg); }
+    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); opacity: 0.95; }
+    35% { transform: translate3d(-18vw, -14vh, 0) scale(1.24) rotate(-14deg); opacity: 0.28; }
+    70% { transform: translate3d(16vw, 18vh, 0) scale(0.84) rotate(12deg); opacity: 1; }
+    100% { transform: translate3d(-8vw, 22vh, 0) scale(1.14) rotate(-8deg); opacity: 0.45; }
   }
   @keyframes lava-drift-e {
-    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-    45% { transform: translate3d(-8vw, -8vh, 0) scale(1.06) rotate(5deg); }
-    100% { transform: translate3d(5vw, -12vh, 0) scale(0.96) rotate(-6deg); }
+    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); opacity: 0.3; }
+    45% { transform: translate3d(-20vw, -18vh, 0) scale(1.16) rotate(12deg); opacity: 1; }
+    100% { transform: translate3d(14vw, -22vh, 0) scale(0.88) rotate(-14deg); opacity: 0.28; }
   }
 
   .lift, .nav a, button, .player-link, .team-link, .dest, .slate-jump, .rank-row, .player-card, .trade-item, .notebook {
