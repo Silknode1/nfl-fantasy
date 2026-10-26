@@ -1,0 +1,41 @@
+name: Deploy fantasy desk
+
+# Pages for this repo is already set to build_type workflow. This deploys the
+# static site on the gh-pages branch (Vite build plus fantasy.json).
+on:
+  push:
+    branches: [gh-pages]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout published desk
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Drop the git directory
+        run: rm -rf .git
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
