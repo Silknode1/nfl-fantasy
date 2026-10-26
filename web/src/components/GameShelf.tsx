@@ -113,10 +113,12 @@ export function GameShelf({
                 {players.map((row) => (
                   <li key={row.id}>
                     <PlayerLink id={row.id} name={row.name} />
-                    {gameState === 'pre' || row.scored == null ? (
-                      <span>{row.proj == null ? 'No week projection stored' : `${row.proj} projected this week`}</span>
+                    {gameState === 'post' && row.scored != null ? (
+                      <span className="shelf-points"><b>{row.scored}</b> final</span>
+                    ) : gameState === 'pre' || row.scored == null ? (
+                      <span className="shelf-points">{row.proj == null ? 'No week projection stored' : <><b>{row.proj}</b> projected</>}</span>
                     ) : (
-                      <span>{row.scored} so far · {row.proj == null ? 'no week projection stored' : `${row.proj} projected this week`}. Points so far and the projection are different numbers.</span>
+                      <span className="shelf-points"><b>{row.scored}</b> so far{row.proj == null ? '' : <em> · projected {row.proj}</em>}</span>
                     )}
                   </li>
                 ))}

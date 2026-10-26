@@ -1,5 +1,6 @@
 /**
- * The Games ticker: the whole week as one or two full-width rows of bubbles.
+ * The Games ticker: the week as full-width rows of bubbles.
+ * At least 60% of the games stay on screen. Bubbles shrink before a third row is added.
  * Every number on a bubble is copied from the scoreboard. A missing quote is an empty slot.
  */
 
@@ -26,20 +27,80 @@ export interface BubbleFacts {
   live: boolean
 }
 
-/** One row through seven games, two rows after that. The band is always the full desk width. */
-export function tickerRowCount(games: number): number {
-  if (games <= 0) return 0
-  return games <= 7 ? 1 : 2
+/** Gap between bubbles, matching `.ticker-seg`. */
+export const TICK_GAP = 8
+/** Smallest readable bubble: two abbreviations, a score, and a status line. */
+export const TICK_MIN = 156
+/** Preferred bubble. Wider desks keep this; tighter desks shrink toward TICK_MIN. */
+export const TICK_PREF = 188
+/** Share of the week that must be on screen without scrolling. */
+export const VISIBLE_SHARE = 0.6
+const MAX_ROWS = 5
+
+export interface TickerFit {
+  rows: number
+  bubble: number
+}
+
+/** How many bubbles of `bubble` px fit in `viewport`, including the gap. */
+export function bubblesAcross(viewport: number, bubble: number, gap = TICK_GAP): number {
+  if (!(viewport > 0) || !(bubble > 0)) return 1
+  return Math.max(1, Math.floor((viewport + gap) / (bubble + gap)))
+}
+
+/** Games actually on screen when each row shows at most `across` bubbles. */
+export function visibleCount(games: number, rows: number, across: number): number {
+  if (games <= 0 || rows <= 0 || across <= 0) return 0
+  let seen = 0
+  const n = Math.min(rows, games)
+  for (let i = 0; i < n; i++) {
+    const size = Math.floor(games / n) + (i < games % n ? 1 : 0)
+    seen += Math.min(size, across)
+  }
+  return seen
+}
+
+/**
+ * Rows and bubble width so at least 60% of `games` fit in `viewport`.
+ * Keeps the comfortable width when two rows are enough. Shrinks next.
+ * Adds a row only when shrinking to TICK_MIN still hides too much.
+ */
+export function tickerFit(games: number, viewport: number): TickerFit {
+  if (games <= 0) return { rows: 0, bubble: TICK_PREF }
+  const width = viewport > 0 ? viewport : 1280
+  const need = Math.ceil(games * VISIBLE_SHARE - 1e-9)
+  const maxRows = Math.min(MAX_ROWS, games)
+  for (let rows = 1; rows <= maxRows; rows++) {
+    if (visibleCount(games, rows, bubblesAcross(width, TICK_PREF)) >= need) return { rows, bubble: TICK_PREF }
+  }
+  for (let rows = 1; rows <= maxRows; rows++) {
+    let best: number | null = null
+    for (let bubble = TICK_PREF; bubble >= TICK_MIN; bubble -= 2) {
+      if (visibleCount(games, rows, bubblesAcross(width, bubble)) >= need) {
+        best = bubble
+        break
+      }
+    }
+    if (best != null) return { rows, bubble: best }
+  }
+  return { rows: maxRows, bubble: TICK_MIN }
+}
+
+/** Row count for a desk. `viewport` defaults to a laptop width until the band is measured. */
+export function tickerRowCount(games: number, viewport = 1280): number {
+  return tickerFit(games, viewport).rows
 }
 
 export interface TickerBand {
   rows: number
+  bubble: number
   fullWidth: true
 }
 
-/** Encodes the desk rule: at most two rows, and the band spans the width under the Games nav. */
-export function tickerBand(games: number): TickerBand {
-  return { rows: tickerRowCount(games), fullWidth: true }
+/** The band spans the width under the Games nav and keeps 60% of the week in view. */
+export function tickerBand(games: number, viewport = 1280): TickerBand {
+  const fit = tickerFit(games, viewport)
+  return { rows: fit.rows, bubble: fit.bubble, fullWidth: true }
 }
 
 /** Live-first order, cut into balanced contiguous rows, so live games land in the top rows. */
@@ -83,9 +144,19 @@ export function trackOffset(direction: TickDirection, travelled: number, span: n
   return direction === 'left' ? -d : d - span
 }
 
-/** Animate only when one copy of the row fits the viewport; otherwise the row scrolls by hand. */
+/**
+ * Auto-scroll a row only when its games overflow the viewport.
+ * A row that already fits stays still. Reduced motion always scrolls by hand.
+ * The 24px slack ignores the segment's trailing gap so a fitted row does not creep.
+ */
 export function shouldAnimate(contentWidth: number, viewportWidth: number, reducedMotion: boolean): boolean {
-  return !reducedMotion && viewportWidth > 0 && contentWidth > 0 && contentWidth <= viewportWidth
+  if (reducedMotion || !(viewportWidth > 0) || !(contentWidth > 0)) return false
+  return contentWidth > viewportWidth + 24
+}
+
+/** A row holds still while the pointer is over it, or while a press is in progress. */
+export function rowHeld(hovering: boolean, pressing: boolean): boolean {
+  return hovering || pressing
 }
 
 /**

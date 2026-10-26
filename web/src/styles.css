@@ -1262,13 +1262,13 @@ button.ghost.back { margin-left: auto; }
 }
 .app.games-desk .nav a { margin: 0; white-space: nowrap; }
 .app.games-desk .nav .fresh { margin: 0 0 0 auto; padding: 8px 12px; }
-.app.games-desk .main { font-size: 18px; }
+.app.games-desk .main { font-size: 16px; }
 .app.games-desk .game-sheet h3,
-.app.games-desk .game-shelf h3 { font-size: 22px; }
+.app.games-desk .game-shelf h3 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .app.games-desk .game-sheet p,
 .app.games-desk .game-sheet li,
 .app.games-desk .game-shelf p,
-.app.games-desk .game-shelf li { font-size: 18px; line-height: 1.4; }
+.app.games-desk .game-shelf li { font-size: 16px; line-height: 1.45; }
 
 .ticker { display: grid; gap: 6px; margin: 0 0 12px; width: 100%; }
 .ticker-row { display: flex; gap: 8px; align-items: stretch; width: 100%; min-width: 0; }
@@ -1286,13 +1286,14 @@ button.ghost.back { margin-left: auto; }
 .ticker-seg { display: flex; gap: 8px; min-width: 100%; padding-right: 8px; box-sizing: border-box; }
 .tick {
   position: relative;
-  flex: 1 0 248px;
+  flex: 1 0 var(--tick-min, 188px);
   width: auto;
-  min-width: 248px;
+  min-width: var(--tick-min, 188px);
+  max-width: 280px;
   height: 58px;
   min-height: 58px;
   max-height: 58px;
-  padding: 6px 14px 5px;
+  padding: 6px 10px 5px;
   border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: 16px;
   color: #fff;
@@ -1311,7 +1312,7 @@ button.ghost.back { margin-left: auto; }
   grid-template-columns: 1fr auto 1fr;
   align-items: baseline;
   gap: 6px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
@@ -1353,7 +1354,44 @@ button.tick:active { transform: none; }
   align-items: start;
 }
 .game-stage:has(.game-shelf.is-collapsed) { grid-template-columns: minmax(0, 1fr) 56px; }
-.game-sheet { border-radius: 28px 22px 26px 18px; min-width: 0; }
+.game-sheet {
+  border-radius: 28px;
+  min-width: 0;
+  padding: 28px 32px 20px;
+  background: color-mix(in oklab, var(--panel) 82%, transparent);
+}
+.matchup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 28px;
+  align-items: end;
+  padding: 8px 8px 22px;
+}
+.matchup-side { display: grid; gap: 6px; min-width: 0; }
+.matchup-side.is-home { text-align: right; }
+.matchup-name { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.02em; color: var(--muted); }
+.matchup-name a { color: var(--text); font-weight: 650; }
+.matchup-score {
+  margin: 0;
+  font-size: clamp(3.4rem, 6vw, 5.2rem);
+  font-weight: 650;
+  letter-spacing: -0.055em;
+  line-height: 0.88;
+  font-variant-numeric: tabular-nums;
+}
+.matchup-mid { display: grid; justify-items: center; gap: 8px; padding-bottom: 8px; text-align: center; }
+.matchup-status { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+.matchup-where { margin: 0; font-size: 13px; color: var(--muted); max-width: 22ch; }
+.matchup .watch-btn {
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: color-mix(in oklab, var(--text) 6%, transparent);
+}
+.shelf-points b { font-variant-numeric: tabular-nums; font-size: 1.15em; letter-spacing: -0.03em; color: var(--text); }
+.shelf-points em { font-style: normal; color: var(--muted); font-size: 0.92em; }
 .game-cols {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(220px, 0.8fr);
@@ -1361,6 +1399,15 @@ button.tick:active { transform: none; }
   align-items: start;
 }
 .game-main, .game-side { min-width: 0; }
+.game-sheet .desk-section {
+  border: 0;
+  border-top: 1px solid color-mix(in oklab, var(--line) 80%, transparent);
+  border-radius: 0;
+  padding: 18px 4px 10px;
+  margin: 0;
+  background: transparent;
+}
+.game-shelf .desk-section,
 .desk-section {
   border: 1px solid var(--line);
   border-radius: 16px;

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { BoardGame } from '../board/normalize'
-import { bubbleBackground, bubbleFacts, keyActivatesTicker, rowSpeed, scrimFor, shouldAnimate, tickerBand, tickerRows, tickerTargetFromNode, trackOffset, type TickDirection } from '../board/ticker'
+import { bubbleBackground, bubbleFacts, keyActivatesTicker, rowHeld, rowSpeed, scrimFor, shouldAnimate, tickerFit, tickerRows, tickerTargetFromNode, trackOffset, type TickDirection } from '../board/ticker'
 
 function Bubble({
   game,
@@ -10,7 +10,8 @@ function Bubble({
   dim,
   tabbable,
   onSelect,
-  onHold,
+  onPress,
+  onRelease,
 }: {
   game: BoardGame
   games: BoardGame[]
@@ -19,7 +20,8 @@ function Bubble({
   dim: boolean
   tabbable: boolean
   onSelect: (id: string) => void
-  onHold: () => void
+  onPress: () => void
+  onRelease: () => void
 }) {
   const facts = bubbleFacts(game)
   const scrim = scrimFor([game.away.color, game.home.color])
@@ -47,11 +49,12 @@ function Bubble({
       style={{ backgroundImage: bubbleBackground(game.away.color, game.home.color, scrim) }}
       onPointerDown={(event) => {
         if (event.button !== 0) return
-        onHold()
+        onPress()
         try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* pointer already gone */ }
         down.current = { x: event.clientX, y: event.clientY, id: event.currentTarget.dataset.gameId ?? '' }
       }}
       onPointerUp={(event) => {
+        onRelease()
         const start = down.current
         down.current = null
         if (!start) return
@@ -59,6 +62,10 @@ function Bubble({
         dragged.current = moved
         if (moved) return
         activate(event.currentTarget.dataset.gameId || start.id)
+      }}
+      onPointerCancel={() => {
+        onRelease()
+        down.current = null
       }}
       onClick={(event) => {
         if (dragged.current) {
@@ -111,6 +118,9 @@ function Row({
   const segment = useRef<HTMLDivElement>(null)
   const copy = useRef<HTMLDivElement>(null)
   const paused = useRef(false)
+  const hovering = useRef(false)
+  const focused = useRef(false)
+  const presses = useRef(0)
   const travelled = useRef(0)
   const runningRef = useRef(false)
   const [running, setRunning] = useState(false)
@@ -172,6 +182,9 @@ function Row({
 
   const fixed = games.filter((game) => game.state === 'in')
   const moving = games.filter((game) => game.state !== 'in')
+  const syncHold = () => {
+    paused.current = rowHeld(hovering.current || focused.current, presses.current > 0)
+  }
   const bubbles = (list: BoardGame[], tabbable: boolean) => list.map((game) => (
     <Bubble
       key={game.id}
@@ -182,7 +195,14 @@ function Row({
       dim={marked && !matches.has(game.id) && game.id !== selectedId}
       tabbable={tabbable}
       onSelect={onSelect}
-      onHold={() => { paused.current = true }}
+      onPress={() => {
+        presses.current += 1
+        syncHold()
+      }}
+      onRelease={() => {
+        presses.current = Math.max(0, presses.current - 1)
+        syncHold()
+      }}
     />
   ))
 
@@ -191,14 +211,17 @@ function Row({
       className="ticker-viewport"
       ref={viewport}
       data-direction={direction}
-      onPointerEnter={() => { paused.current = true }}
-      onPointerLeave={() => { paused.current = false }}
       onFocus={(event) => {
-        paused.current = true
+        focused.current = true
+        syncHold()
         if (event.target instanceof HTMLButtonElement) showFocused(event.target)
       }}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) paused.current = false
+        const row = event.currentTarget.parentElement
+        if (row && !row.contains(event.relatedTarget as Node | null)) {
+          focused.current = false
+          syncHold()
+        }
       }}
       onKeyDown={(event) => {
         if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
@@ -224,7 +247,17 @@ function Row({
   )
 
   return (
-    <div className="ticker-row">
+    <div
+      className="ticker-row"
+      onPointerEnter={() => {
+        hovering.current = true
+        syncHold()
+      }}
+      onPointerLeave={() => {
+        hovering.current = false
+        syncHold()
+      }}
+    >
       {fixed.length > 0 && <div className="ticker-fixed">{bubbles(fixed, true)}</div>}
       {scroller}
     </div>
@@ -246,11 +279,29 @@ export function GameTicker({
   yours: (game: BoardGame) => boolean
   onSelect: (id: string) => void
 }) {
-  const rows = tickerRows(games)
-  const band = tickerBand(games.length)
+  const root = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(1280)
+  useLayoutEffect(() => {
+    const el = root.current
+    if (!el) return
+    const apply = () => setWidth(el.clientWidth)
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const fit = tickerFit(games.length, width)
+  const rows = tickerRows(games, fit.rows)
   if (!rows.length) return null
   return (
-    <div className="ticker" data-ticker-rows={band.rows} data-full-width={band.fullWidth ? 'true' : 'false'} aria-label="This week's games">
+    <div
+      className="ticker"
+      ref={root}
+      data-ticker-rows={fit.rows}
+      data-full-width="true"
+      style={{ ['--tick-min' as string]: `${fit.bubble}px` }}
+      aria-label="This week's games"
+    >
       {rows.map((row) => (
         <Row
           key={row.index}
