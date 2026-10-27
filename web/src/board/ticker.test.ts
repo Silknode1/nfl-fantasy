@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import snapshot from '../../public/data/scoreboard.json'
 import { normalizeScoreboard, type BoardGame } from './normalize'
-import { bubbleBackground, bubbleFacts, keyActivatesTicker, rowSpeed, scrimFor, selectedAfterTicker, shouldAnimate, siblingStops, spreadSlot, tickerBand, tickerRowCount, tickerRows, tickerTargetFromNode, trackOffset, whiteContrast, wrap } from './ticker'
+import { bubbleBackground, bubbleFacts, bubblesAcross, keyActivatesTicker, rowHeld, rowSpeed, scrimFor, selectedAfterTicker, shouldAnimate, siblingStops, spreadSlot, TICK_MIN, TICK_PREF, tickerBand, tickerFit, tickerRowCount, tickerRows, tickerTargetFromNode, trackOffset, visibleCount, VISIBLE_SHARE, whiteContrast, wrap } from './ticker'
 
 const SF_WSH = '401873008'
 const BAL_CLE = '401872997'
@@ -13,22 +13,32 @@ function week(live: string[] = []): BoardGame[] {
 }
 
 describe('ticker rows', () => {
-  test('the whole week sits in one or two full-width rows, every game once', () => {
+  test('the whole week sits in full-width rows, every game once', () => {
     const games = week()
     const rows = tickerRows(games)
-    expect(rows).toHaveLength(2)
+    expect(rows).toHaveLength(tickerRowCount(games.length))
     const ids = rows.flatMap((row) => row.games.map((game) => game.id))
     expect(ids).toHaveLength(14)
     expect(new Set(ids).size).toBe(14)
     expect(rows.map((row) => row.games.length)).toEqual([7, 7])
-    expect(tickerRowCount(7)).toBe(1)
-    expect(tickerRowCount(8)).toBe(2)
-    expect(tickerRowCount(12)).toBe(2)
-    expect(tickerRowCount(13)).toBe(2)
-    expect(tickerRowCount(2)).toBe(1)
     expect(tickerRowCount(0)).toBe(0)
-    expect(tickerBand(games.length)).toEqual({ rows: 2, fullWidth: true })
     expect(tickerBand(2).fullWidth).toBe(true)
+    expect(tickerBand(games.length).bubble).toBeGreaterThan(0)
+  })
+
+  test('at least 60% of the week stays on screen, shrinking before adding a row', () => {
+    for (const games of [8, 12, 14, 16]) {
+      for (const viewport of [720, 900, 1100, 1280, 1440]) {
+        const fit = tickerFit(games, viewport)
+        const seen = visibleCount(games, fit.rows, bubblesAcross(viewport, fit.bubble))
+        expect(seen / games).toBeGreaterThanOrEqual(VISIBLE_SHARE)
+        expect(fit.bubble).toBeGreaterThanOrEqual(TICK_MIN)
+        expect(fit.bubble).toBeLessThanOrEqual(TICK_PREF)
+      }
+    }
+    expect(tickerFit(14, 1440)).toEqual({ rows: 2, bubble: TICK_PREF })
+    expect(tickerFit(14, 900).rows).toBe(3)
+    expect(tickerFit(7, 1280).rows).toBe(1)
   })
 
   test('live games land in the top rows', () => {
@@ -55,11 +65,18 @@ describe('ticker rows', () => {
     expect(wrap(5, 0)).toBe(0)
   })
 
-  test('a row only animates when one copy fits and motion is allowed', () => {
-    expect(shouldAnimate(600, 1200, false)).toBe(true)
-    expect(shouldAnimate(600, 1200, true)).toBe(false)
-    expect(shouldAnimate(1400, 1200, false)).toBe(false)
+  test('a row animates only when its games overflow and motion is allowed', () => {
+    expect(shouldAnimate(1400, 1200, false)).toBe(true)
+    expect(shouldAnimate(600, 1200, false)).toBe(false)
+    expect(shouldAnimate(1220, 1200, false)).toBe(false)
+    expect(shouldAnimate(1400, 1200, true)).toBe(false)
     expect(shouldAnimate(600, 0, false)).toBe(false)
+  })
+
+  test('hover or a press holds one row; the other row is a separate call', () => {
+    expect(rowHeld(true, false)).toBe(true)
+    expect(rowHeld(false, true)).toBe(true)
+    expect(rowHeld(false, false)).toBe(false)
   })
 })
 

@@ -195,7 +195,7 @@ export function DeskFrame({
         onSelect={onSelect}
       />
       <div className="game-stage">
-        <div className="game-sheet glass featured">
+        <div className="game-sheet glass">
           {lineError && <p className="block-fail">Line: {lineError}</p>}
           {missingId && !selected && (
             <p>That game is not on this week's board. The ticker is still every game we have.</p>
@@ -275,39 +275,36 @@ function Selected({
   const ready = detail != null
   const headline = headlines[0]
 
+  const statusLine = game.state === 'pre'
+    ? [when(game.kickoff), game.detail].filter(Boolean).join(' · ')
+    : [
+        game.detail,
+        shown.situation?.clock,
+        ball ? `${ball} ball` : null,
+        shown.situation?.redZone ? 'Red zone' : null,
+      ].filter(Boolean).join(' · ')
+
   return (
-    <article>
-      <header className="center-top">
-        <div>
-          <h2 className="desk-team">
-            <TeamLink abbr={game.away.abbr}>{game.away.name}</TeamLink>
-            {' at '}
-            <TeamLink abbr={game.home.abbr}>{game.home.name}</TeamLink>
-          </h2>
-          <p className="desk-where">{where || 'Site not on this pull'}</p>
+    <article className="matchup-card">
+      <header className="matchup">
+        <div className="matchup-side">
+          <p className="matchup-name"><TeamLink abbr={game.away.abbr}>{game.away.name}</TeamLink></p>
+          <p className="matchup-score">{game.state === 'pre' ? game.away.abbr : (game.away.score ?? '–')}</p>
         </div>
-        {watch ? (
-          <a className="watch-btn" href={watch.href} target="_blank" rel="noreferrer">Watch on {watch.label}</a>
-        ) : (
-          <button type="button" className="watch-btn" disabled>{game.broadcast || 'No broadcast listed'}</button>
-        )}
+        <div className="matchup-mid">
+          <p className="matchup-status">{statusLine || 'Status not on this pull'}</p>
+          <p className="matchup-where">{where || 'Site not on this pull'}</p>
+          {watch ? (
+            <a className="watch-btn" href={watch.href} target="_blank" rel="noreferrer">Watch on {watch.label}</a>
+          ) : (
+            <button type="button" className="watch-btn" disabled>{game.broadcast || 'No broadcast listed'}</button>
+          )}
+        </div>
+        <div className="matchup-side is-home">
+          <p className="matchup-name"><TeamLink abbr={game.home.abbr}>{game.home.name}</TeamLink></p>
+          <p className="matchup-score">{game.state === 'pre' ? game.home.abbr : (game.home.score ?? '–')}</p>
+        </div>
       </header>
-      {game.state === 'pre' ? (
-        <p className="live-meta">{when(game.kickoff)}. {game.detail}.{game.broadcast ? ` Watch: ${game.broadcast}.` : ''}</p>
-      ) : (
-        <>
-          <p className="score-line">
-            <span className="desk-score">{game.away.abbr} {game.away.score ?? '–'}</span>
-            <span className="desk-score">{game.home.abbr} {game.home.score ?? '–'}</span>
-          </p>
-          <p className="live-meta">
-            {game.detail}
-            {shown.situation?.clock ? ` · ${shown.situation.clock}` : ''}
-            {ball ? ` · ${ball} has the ball` : ''}
-            {shown.situation?.redZone ? ' · Red zone' : ''}
-          </p>
-        </>
-      )}
       {detailError && <p className="block-fail">Detail: injuries, drives, and the win-probability series did not load.</p>}
       <div className="game-cols">
         <div className="game-main">
