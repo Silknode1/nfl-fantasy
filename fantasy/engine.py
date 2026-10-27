@@ -14,6 +14,8 @@ Projection model (half-PPR points per game when active), deliberately simple and
                ESPN's weekly number already includes the opponent, so it is not applied again
   later week = season rate * opponent factor (shrunk, clipped to +/-8%) * availability
   bye, free agent, or no game = 0
+  a played week keeps that same projection; the actual is stored separately and is not below the floor of 0
+  weekly points are floored at 0 so they cannot sit under the displayed floor
 Run: python -m fantasy.engine
 """
 from __future__ import annotations
@@ -317,7 +319,10 @@ def build() -> dict:
         recent = [v for wk, v in sorted(actual.items()) if wk <= current][-3:]  # last 3 games with a stat line
         last3 = round(statistics.mean(recent), 1) if recent else None
         emp_sd = statistics.pstdev(played) if gp >= 3 else None
-        sd = CV[pos] * rate if emp_sd is None else 0.5 * CV[pos] * rate + 0.5 * emp_sd
+        # A negative blend (a few backups with negative scoring and a ~0 ESPN prior)
+        # is not a negative spread. Spread is a width, so it stays at or above 0.
+        rate_for_sd = max(rate, 0.0)
+        sd = CV[pos] * rate_for_sd if emp_sd is None else 0.5 * CV[pos] * rate_for_sd + 0.5 * emp_sd
         own = p.get("ownership") or {}
         sid = espn_to_sleeper.get(eid)
         on_team = entry.get("onTeamId") or 0
@@ -362,16 +367,15 @@ def build() -> dict:
             for wk in range(current, LAST_WEEK + 1):
                 k = str(wk)
                 s_if, s_ex = starter["projIf"].get(k, 0.0), starter["proj"].get(k, 0.0)
-                if wk == current and starter["locked"]:
-                    continue
                 if starter["bye"] == wk:
                     continue  # bye: both idle
-                # projIf is 0 when the starter is ruled out, so that means he misses for sure
+                # projIf is 0 when the starter is ruled out, so that means he misses for sure.
+                # A played week still carries the pregame projection here. The actual lives on `actual`.
                 miss = 1.0 if s_if <= 0 else max(0.0, 1.0 - s_ex / s_if)   # chance the starter does not play
                 m = 1.0 + (BACKUP_LIFT[pos] - 1.0) * miss
-                if m > 1.005 and not (wk == current and q["locked"]):
-                    q["proj"][k] = round(q["proj"][k] * m, 2)
-                    q["projIf"][k] = round(q["projIf"][k] * m, 2)
+                if m > 1.005:
+                    q["proj"][k] = round(max(0.0, q["proj"][k] * m), 2)
+                    q["projIf"][k] = round(max(0.0, q["projIf"][k] * m), 2)
                     q["lift"][k] = round(m, 3)
             if q["lift"]:
                 q["ros"] = round(sum(v for wk, v in ((int(a), b) for a, b in q["proj"].items()) if current < wk <= REG_WEEKS), 1)
@@ -431,6 +435,123 @@ def build() -> dict:
         "nflOpp": {t: {str(w): opp[(t, w)] for w in range(1, LAST_WEEK + 1) if (t, w) in opp} for t in byes},
     }
     return out
+
+
+def _pregame_week(p: dict, week: int, defense: dict, nfl_opp: dict) -> tuple[float, float]:
+    """Pregame proj and projIf for one week, from fields already stored on the player.
+
+    Practice status is not on the player record. A questionable player uses the
+    default play rate from availability(), which is what the model uses when the
+    report is missing.
+    """
+    from fantasy.project import blend_rate, defense_factor_clip
+
+    parts = p.get("rateParts") or {}
+    anchor = parts.get("week")
+    if anchor is None:
+        anchor = parts.get("espn") or 0.0
+    trend = float(parts.get("trend") or 1.0)
+    jev_m = float(parts.get("jev") or 1.0)
+    rate = blend_rate(p["pos"], int(p.get("gp") or 0), float(p.get("ppg") or 0.0), float(anchor)) * trend * jev_m
+    status = p.get("inj")
+    espn_week = p.get("espnWeek")
+    espn_priced = bool(espn_week and espn_week > 0.3 and status in (None, "ACTIVE", "QUESTIONABLE", "DAY_TO_DAY"))
+    opp = (nfl_opp.get(p.get("nfl")) or {}).get(str(week))
+    if p.get("bye") == week or p.get("nfl") == "FA" or not opp:
+        return 0.0, 0.0
+    factor = 1.0 if espn_priced else defense_factor_clip(float((defense.get(opp) or {}).get(p["pos"], 1.0)))
+    play, cond, _note = availability(status, p["pos"], week, week, p.get("jev"), None)
+    if_play = max(0.0, rate * factor * cond)
+    if play <= 0:
+        return 0.0, 0.0
+    return round(if_play * play, 2), round(if_play, 2)
+
+
+def _lift_restored(players: list, week: int, restored: set[str]) -> None:
+    """Backup lift for the current week, only on rows whose projection was just restored.
+
+    Rows that were never overwritten already include this lift. Applying it again would double it.
+    """
+    by_unit: dict = {}
+    for q in players:
+        if q["nfl"] != "FA" and q["pos"] in BACKUP_LIFT and q["rate"] >= 2.5:
+            by_unit.setdefault((q["nfl"], q["pos"]), []).append(q)
+    k = str(week)
+    for (_team, pos), grp in by_unit.items():
+        grp.sort(key=lambda q: -q["rate"])
+        if len(grp) < 2:
+            continue
+        starter = grp[0]
+        if starter["bye"] == week:
+            continue
+        s_if, s_ex = starter["projIf"].get(k, 0.0), starter["proj"].get(k, 0.0)
+        miss = 1.0 if s_if <= 0 else max(0.0, 1.0 - s_ex / s_if)
+        m = 1.0 + (BACKUP_LIFT[pos] - 1.0) * miss
+        if m <= 1.005:
+            continue
+        for q in grp[1 : 1 + BACKUP_DEPTH]:
+            if q["id"] not in restored:
+                continue
+            q["proj"][k] = round(max(0.0, q["proj"][k] * m), 2)
+            q["projIf"][k] = round(max(0.0, q["projIf"][k] * m), 2)
+            q.setdefault("lift", {})[k] = round(m, 3)
+
+
+def _rerank(players: list) -> None:
+    for pos in CV:
+        group = [p for p in players if p["pos"] == pos]
+        for i, p in enumerate(sorted(group, key=lambda p: -(p["ros"] + 1.5 * p["playoffs"]))):
+            p["ourRank"] = i + 1
+
+
+def separate_played_projections(data: dict) -> int:
+    """Put a copied actual back into the actual field's neighbor: proj becomes the pregame number.
+
+    Old builds set proj and projIf to the actual once a stat line existed, and left playP empty.
+    That signature is restored. Weekly points are then floored at 0, and a negative spread at 0.
+    Returns how many current-week projections were restored.
+    """
+    meta = data["meta"]
+    week = int(meta["week"])
+    wk = str(week)
+    reg = int(meta["regularWeeks"])
+    defense = data.get("defense") or {}
+    nfl_opp = data.get("nflOpp") or {}
+    restored: set[str] = set()
+    for p in data["players"]:
+        if not p.get("locked") or p.get("playP") is not None:
+            continue
+        actual = (p.get("actual") or {}).get(wk)
+        proj = (p.get("proj") or {}).get(wk)
+        proj_if = (p.get("projIf") or {}).get(wk)
+        if actual is None or proj is None or proj_if is None:
+            continue
+        if abs(float(proj) - float(actual)) > 0.011 or abs(float(proj_if) - float(proj)) > 0.011:
+            continue
+        base, base_if = _pregame_week(p, week, defense, nfl_opp)
+        if p["proj"][wk] == base and p["projIf"][wk] == base_if:
+            continue
+        p["proj"][wk] = base
+        p["projIf"][wk] = base_if
+        restored.add(p["id"])
+    _lift_restored(data["players"], week, restored)
+    ros_changed = False
+    for p in data["players"]:
+        for bucket in ("proj", "projIf"):
+            book = p.get(bucket) or {}
+            for key, value in list(book.items()):
+                if value < 0:
+                    book[key] = 0.0
+                    ros_changed = True
+        if p.get("sd", 0) < 0:
+            p["sd"] = 0.0
+        if p["id"] in restored or ros_changed:
+            proj = p["proj"]
+            p["ros"] = round(sum(v for key, v in proj.items() if week < int(key) <= reg), 1)
+            p["playoffs"] = round(sum(v for key, v in proj.items() if int(key) > reg), 1)
+    if restored or ros_changed:
+        _rerank(data["players"])
+    return len(restored)
 
 
 def main():

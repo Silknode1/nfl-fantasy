@@ -150,7 +150,7 @@ def test_ruled_out_player_projects_zero_even_if_a_rate_exists():
     assert out["proj_if"][6] == 0.0
 
 
-def test_already_played_week_keeps_the_actual():
+def test_already_played_week_keeps_the_projection_separate_from_the_actual():
     out = schedule_projection(
         pos="QB",
         current=6,
@@ -164,9 +164,35 @@ def test_already_played_week_keeps_the_actual():
         espn_priced_week=True,
         weeks=[{"week": 6, "bye": False, "has_game": True, "opp": 0.9, "play": 0.97, "if_plays": 1.0, "actual": 22.4}],
     )
-    assert out["proj"][6] == 22.4
-    assert out["proj_if"][6] == 22.4
+    # Season rate 300/17. Week prior 0.6*18 + 0.4*that. QB prior is 10 games.
+    # The 22.4 actual is not the projection, and the 0.9 opponent factor is not applied.
+    season_rate = 300.0 / 17.0
+    anchor = 0.6 * 18.0 + 0.4 * season_rate
+    rate = (5 * 18.0 + 10 * anchor) / 15
+    assert out["proj"][6] == round(rate * 0.97, 2)
+    assert out["proj_if"][6] == round(rate, 2)
+    assert out["proj"][6] != 22.4
     assert out["play_p"] is None
+
+
+def test_weekly_points_do_not_fall_below_the_floor():
+    out = schedule_projection(
+        pos="QB",
+        current=8,
+        last_week=8,
+        gp=4,
+        ppg=-0.5,
+        espn_week=0.0,
+        espn_season=0.0,
+        trend=1.0,
+        jev=1.0,
+        espn_priced_week=False,
+        weeks=[{"week": 8, "bye": False, "has_game": True, "opp": 0.92, "play": 0.97, "if_plays": 1.0, "actual": None}],
+    )
+    # The blend itself can be negative. The week that would be shown as expected points cannot.
+    assert out["rate"] < 0
+    assert out["proj"][8] == 0.0
+    assert out["proj_if"][8] == 0.0
 
 
 def test_opponent_factor_clips_at_eight_percent():
@@ -185,6 +211,60 @@ def test_defense_table_clips_at_eight_percent():
     fac = defense_factors(weekly)
     assert fac["AAA"]["WR"] == 1.08
     assert fac["BBB"]["WR"] == 0.92
+
+
+def test_separate_played_week_restores_the_pregame_projection_and_leaves_the_actual():
+    from fantasy.engine import separate_played_projections
+
+    player = {
+        "id": "1", "name": "Runner", "pos": "RB", "nfl": "BUF", "teamId": 1,
+        "inj": "ACTIVE", "bye": 12, "gp": 4, "ppg": 10.0, "espnWeek": 12.0,
+        "rate": 10.0, "locked": True, "playP": None, "sd": 4.0,
+        "rateParts": {"espn": 10.0, "season": 10.0, "trend": 1.0, "jev": 1.0, "week": 11.2, "k": 4.0},
+        "actual": {"6": 22.0},
+        "proj": {"6": 22.0, "7": 10.8},
+        "projIf": {"6": 22.0, "7": 11.25},
+        "ros": 10.8, "playoffs": 0.0, "ourRank": 1,
+    }
+    data = {
+        "meta": {"week": 6, "regularWeeks": 14, "lastWeek": 17},
+        "defense": {"MIA": {"RB": 1.2}},
+        "nflOpp": {"BUF": {"6": "MIA", "7": "MIA"}},
+        "players": [player],
+    }
+    assert separate_played_projections(data) == 1
+    # ESPN priced the week (12 > 0.3, active), so the 1.2 factor is not applied.
+    # RB prior 4: (4*10 + 4*11.2) / 8 = 10.6, times 0.96 play chance.
+    assert player["proj"]["6"] == round(10.6 * 0.96, 2)
+    assert player["projIf"]["6"] == 10.6
+    assert player["actual"]["6"] == 22.0
+    assert player["proj"]["7"] == 10.8
+
+
+def test_separate_played_week_floors_a_negative_week_and_a_negative_spread():
+    from fantasy.engine import separate_played_projections
+
+    player = {
+        "id": "9", "name": "Backup", "pos": "QB", "nfl": "MIA", "teamId": 0,
+        "inj": "ACTIVE", "bye": 11, "gp": 4, "ppg": -0.25, "espnWeek": 0.0,
+        "rate": -0.07, "locked": False, "playP": 0.97, "sd": -0.16,
+        "rateParts": {"espn": 0.0, "season": -0.25, "trend": 1.0, "jev": 1.0, "week": 0.0, "k": 10.0},
+        "actual": {},
+        "proj": {"8": -0.06, "9": -0.07},
+        "projIf": {"8": -0.06, "9": -0.07},
+        "ros": -0.1, "playoffs": 0.0, "ourRank": 1,
+    }
+    data = {
+        "meta": {"week": 7, "regularWeeks": 14, "lastWeek": 17},
+        "defense": {},
+        "nflOpp": {"MIA": {"8": "BUF", "9": "NYJ"}},
+        "players": [player],
+    }
+    assert separate_played_projections(data) == 0
+    assert player["proj"]["8"] == 0.0
+    assert player["proj"]["9"] == 0.0
+    assert player["sd"] == 0.0
+    assert player["rate"] == -0.07
 
 
 def test_replay_uses_the_position_prior_and_does_not_reapply_opponent(monkeypatch):
