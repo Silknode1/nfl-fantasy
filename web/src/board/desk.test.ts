@@ -7,6 +7,7 @@ import {
   dropPin,
   drivesFrom,
   gameArticle,
+  shelfPointLabel,
   marginSentence,
   marginVsSpread,
   pickCenter,
@@ -311,6 +312,15 @@ describe('watch and clips', () => {
     expect(youtubeId('not a video')).toBeNull()
     expect(youtubeSearchHref('Houston Texans', 'Jacksonville Jaguars')).toContain('search_query=')
     expect(advanceClip(2, 3)).toBe(0)
+  })
+})
+
+describe('shelf points', () => {
+  test('a finished score, a projection, and an out player stay different labels', () => {
+    expect(shelfPointLabel({ proj: 14.1, scored: 17, out: false, bye: false }, 'post')).toEqual({ kind: 'final', scored: 17 })
+    expect(shelfPointLabel({ proj: 14.1, scored: 0, out: false, bye: false }, 'in')).toEqual({ kind: 'live', scored: 0, proj: 14.1 })
+    expect(shelfPointLabel({ proj: 0, scored: 0, out: true, bye: false }, 'in')).toEqual({ kind: 'out' })
+    expect(shelfPointLabel({ proj: null, scored: null, out: false, bye: false }, 'pre')).toEqual({ kind: 'missing' })
   })
 })
 

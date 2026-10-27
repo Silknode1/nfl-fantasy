@@ -258,6 +258,27 @@ export function spreadText(game: BoardGame): string | null {
   return `${game.home.name} ${formatLine(line)}`
 }
 
+export type ShelfPointLabel =
+  | { kind: 'out' }
+  | { kind: 'bye' }
+  | { kind: 'final'; scored: number }
+  | { kind: 'missing' }
+  | { kind: 'projected'; proj: number }
+  | { kind: 'live'; scored: number; proj: number | null }
+
+/** Shelf line for one roster player. A zero projection for someone who is out is not "0 projected". */
+export function shelfPointLabel(
+  row: { proj: number | null; scored: number | null; out: boolean; bye: boolean },
+  state: 'pre' | 'in' | 'post' | null,
+): ShelfPointLabel {
+  const quiet = row.scored == null || row.scored === 0
+  if (row.out && (row.proj == null || row.proj === 0) && quiet) return { kind: 'out' }
+  if (row.bye && row.scored == null) return { kind: 'bye' }
+  if (state === 'post' && row.scored != null) return { kind: 'final', scored: row.scored }
+  if (state === 'pre' || row.scored == null) return row.proj == null ? { kind: 'missing' } : { kind: 'projected', proj: row.proj }
+  return { kind: 'live', scored: row.scored, proj: row.proj }
+}
+
 export function gameArticle(facts: ArticleFacts): string[] {
   const out: string[] = []
   const where = [facts.venue, facts.broadcast].filter(Boolean).join(', ')

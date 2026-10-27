@@ -6,6 +6,7 @@ import { GlassCard, StatGroup } from './glass'
 import { BackButton, TeamLink } from './links'
 import { WeeklyChart } from './WeeklyChart'
 import { weekRange } from './RangeChart'
+import { finalScore } from '../engine/played'
 
 /** How soft a defense is against a position, as a rank (1 = gives up the most points) among teams with data. */
 function defenseRank(d: FantasyData, team: string, pos: Pos): { factor: number; rank: number; of: number } | null {
@@ -56,6 +57,7 @@ export function PlayerProfile({ p, week, onBack, page = false }: { p: Player; we
   const playoffPts = upcoming.filter((w) => w > d.meta.regularWeeks).reduce((a, w) => a + (p.proj[String(w)] ?? 0), 0)
   const u = p.usage
   const playP = p.playP != null && p.playP < 0.9 && p.playP > 0 ? p.playP : null
+  const scored = finalScore(p, Number(week))
 
   return (
     <div className="profile">
@@ -75,13 +77,16 @@ export function PlayerProfile({ p, week, onBack, page = false }: { p: Player; we
       <StatGroup
         label="Season snapshot"
         items={[
-          { label: `Week ${week}`, value: r ? fmt(r.exp) : p.bye === Number(wk) ? 'Bye' : 'Out', className: 'hero', tone: 'accent', title: r ? `${fmt(r.floor)} floor to ${fmt(r.ceil)} ceiling` : undefined },
+          scored != null
+            ? { label: 'Final', value: fmt(scored), className: 'hero', title: `Scored in week ${week}. Projected ${r ? fmt(r.exp) : fmt(p.proj[wk] ?? 0)} before the game.` }
+            : { label: `Week ${week}`, value: r ? fmt(r.exp) : p.bye === Number(wk) ? 'Bye' : p.inj && p.inj !== 'ACTIVE' ? 'Out' : fmt(0), className: 'hero', tone: 'accent' as const, title: r ? `${fmt(r.floor)} floor to ${fmt(r.ceil)} ceiling` : undefined },
+          ...(scored != null ? [{ label: 'Projected', value: r ? fmt(r.exp) : fmt(p.proj[wk] ?? 0), tone: 'accent' as const, title: r ? `${fmt(r.floor)} floor to ${fmt(r.ceil)} ceiling. This is the pregame projection, not the final.` : 'Pregame projection' }] : []),
           { label: 'fPPG', value: fmt(p.ppg), title: `${p.gp} games` },
           { label: 'Last 3', value: p.last3 != null ? fmt(p.last3) : '–', tone: p.last3 != null && p.last3 >= p.ppg * 1.15 ? 'up' : p.last3 != null && p.last3 <= p.ppg * 0.85 ? 'down' : 'neutral', title: p.last3 != null && p.ppg ? `${p.last3 >= p.ppg ? '+' : ''}${fmt(p.last3 - p.ppg)} vs average` : undefined },
           { label: 'ROS/wk', value: fmt(lab.v(p)), title: 'Points per week, byes and injuries counted' },
         ]}
       />
-      {r && <p className="muted small">This week runs {fmt(r.floor)} to {fmt(r.ceil)}. Last 3 versus his average: {p.last3 != null && p.ppg ? `${p.last3 >= p.ppg ? '+' : ''}${fmt(p.last3 - p.ppg)}` : 'not enough games'}.</p>}
+      {r && <p className="muted small">{scored != null ? `Pregame projection runs ${fmt(r.floor)} to ${fmt(r.ceil)}. He scored ${fmt(scored)}.` : `This week runs ${fmt(r.floor)} to ${fmt(r.ceil)}.`} Last 3 versus his average: {p.last3 != null && p.ppg ? `${p.last3 >= p.ppg ? '+' : ''}${fmt(p.last3 - p.ppg)}` : 'not enough games'}.</p>}
 
       <WeeklyChart p={p} />
 
@@ -168,7 +173,7 @@ export function PlayerProfile({ p, week, onBack, page = false }: { p: Player; we
             {fmt(p.rate)} pts/g rest of season: {fmt(parts.season)} scored, blended with ESPN's {fmt(parts.espn)} per game{parts.k != null ? ` (${parts.k} games of ESPN prior for a ${p.pos})` : ''}, trend ×{parts.trend.toFixed(2)}{parts.jev !== 1 ? `, news ×${parts.jev.toFixed(2)}` : ''}. This week's matchup is not carried into later weeks.
           </p>
           <p className="muted small">
-            {fmt(p.proj[wk] ?? 0)} expected{p.projIf && p.projIf[wk] !== p.proj[wk] ? `, ${fmt(p.projIf[wk] ?? 0)} if he plays` : ''}{parts.week != null ? `. This week's ESPN blend is ${fmt(parts.week)}` : ''}{p.espnWeek != null && p.espnWeek > 0.3 ? '. ESPN already priced the opponent, so the defense factor is not applied again.' : ''}
+            {scored != null ? `He scored ${fmt(scored)}. ` : ''}{fmt(p.proj[wk] ?? 0)} projected{p.projIf && p.projIf[wk] !== p.proj[wk] ? `, ${fmt(p.projIf[wk] ?? 0)} if he plays` : ''}{parts.week != null ? `. This week's ESPN blend is ${fmt(parts.week)}` : ''}{p.espnWeek != null && p.espnWeek > 0.3 && scored == null ? '. ESPN already priced the opponent, so the defense factor is not applied again.' : ''}{p.espnWeek != null && p.espnWeek > 0.3 && scored != null ? '. ESPN already priced the opponent, so the defense factor is not applied again on the projection.' : ''}
           </p>
           <p className="muted small">
             Trade value {signed(tv.surplus)} pts/wk above a replacement {p.pos} ({fmt(tv.replacement)}). His own pace is {fmt(tv.production)}, from next week through week {d.meta.lastWeek}, playoff weeks ×1.5. {fmt(lab.v(p))} is that pace before subtracting replacement.

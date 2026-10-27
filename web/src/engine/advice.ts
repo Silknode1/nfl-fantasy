@@ -90,7 +90,16 @@ export function buildPlan(d: FantasyData, lab: TradeLab, ranks: Ranks, sim: SimR
       tone: 'act',
     })
   }
-  if (!wa.swaps.length) short.push({ title: 'Your lineup is already set', detail: `Projected ${wa.best.toFixed(1)} points from the players still to play.`, tone: 'info' })
+  if (!wa.swaps.length) {
+    const anyFinal = mine.some((p) => p.locked && p.actual[String(week)] != null)
+    short.push({
+      title: 'Your lineup is already set',
+      detail: anyFinal
+        ? `Projected ${wa.best.toFixed(1)} points. That is the pregame projection, including players who have already played.`
+        : `Projected ${wa.best.toFixed(1)} points from the players still to play.`,
+      tone: 'info',
+    })
+  }
   const deadIR = mine.filter((p) => p.slot === 'IR' && lab.v(p) < 0.5)
   const irEligibleOnBench = mine.filter((p) => p.slot !== 'IR' && p.inj === 'INJURY_RESERVE')
   if (deadIR.length && irEligibleOnBench.length) {

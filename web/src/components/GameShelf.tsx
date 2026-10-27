@@ -4,6 +4,7 @@ import { fetchNewsBundle } from '../espn/load'
 import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
 import type { BoardGame } from '../board/normalize'
 import { filterNews, newsTeams, pinGameId, readPinnedGames, unpinGameId, writePinnedGames } from '../board/shelf'
+import { shelfPointLabel } from '../board/desk'
 import { mergeDeskNews, newsForGame } from '../news/submit'
 import { PlayerLink } from './links'
 import { useDeskNews } from './SubmitLink'
@@ -110,18 +111,34 @@ export function GameShelf({
           {playersOpen && (
             players.length === 0 ? <p className="muted">Nobody from your roster is in this game.</p> : (
               <ul className="shelf-list">
-                {players.map((row) => (
+                {players.map((row) => {
+                  const fantasy = engine?.d.players.find((p) => p.id === row.id)
+                  const week = engine?.d.meta.week
+                  const label = shelfPointLabel({
+                    proj: row.proj,
+                    scored: row.scored,
+                    out: Boolean(fantasy && fantasy.inj && fantasy.inj !== 'ACTIVE' && (fantasy.proj[String(week)] ?? 0) === 0),
+                    bye: Boolean(fantasy && week != null && fantasy.bye === week),
+                  }, gameState)
+                  return (
                   <li key={row.id}>
                     <PlayerLink id={row.id} name={row.name} />
-                    {gameState === 'post' && row.scored != null ? (
-                      <span className="shelf-points"><b>{row.scored}</b> final</span>
-                    ) : gameState === 'pre' || row.scored == null ? (
-                      <span className="shelf-points">{row.proj == null ? 'No week projection stored' : <><b>{row.proj}</b> projected</>}</span>
+                    {label.kind === 'final' ? (
+                      <span className="shelf-points"><b>{label.scored}</b> final</span>
+                    ) : label.kind === 'out' ? (
+                      <span className="shelf-points">Out</span>
+                    ) : label.kind === 'bye' ? (
+                      <span className="shelf-points">Bye</span>
+                    ) : label.kind === 'missing' ? (
+                      <span className="shelf-points">No week projection stored</span>
+                    ) : label.kind === 'projected' ? (
+                      <span className="shelf-points"><b>{label.proj}</b> projected</span>
                     ) : (
-                      <span className="shelf-points"><b>{row.scored}</b> so far{row.proj == null ? '' : <em> · projected {row.proj}</em>}</span>
+                      <span className="shelf-points"><b>{label.scored}</b> so far{label.proj == null ? '' : <em> · projected {label.proj}</em>}</span>
                     )}
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             )
           )}
