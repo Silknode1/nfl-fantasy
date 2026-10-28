@@ -13,6 +13,12 @@ export interface Swap {
   gain: number
 }
 
+/** A quarterback fills only the QB slot. Flex is RB, WR, or TE. */
+export function fitsSlot(pos: Pos, slot: string): boolean {
+  if (slot === 'FLEX') return pos === 'RB' || pos === 'WR' || pos === 'TE'
+  return pos === slot
+}
+
 /**
  * This week's start/sit: locked players (game already played) stay where they are;
  * everyone else is re-slotted to maximise projected points.
@@ -33,12 +39,25 @@ export function weekAdvice(roster: Player[], week: number): { swaps: Swap[]; cur
   const best = lockedStarters.reduce((s, p) => s + proj(p, week), 0) + [...chosen.keys()].reduce((s, id) => s + proj(roster.find((p) => p.id === id)!, week), 0)
   const benched = roster.filter((p) => isStarter(p) && !p.locked && !chosen.has(p.id))
   const promoted = roster.filter((p) => !isStarter(p) && chosen.has(p.id))
-  const swaps: Swap[] = benched
-    .sort((a, b) => proj(a, week) - proj(b, week))
-    .map((out, i) => ({ out, in: promoted.sort((a, b) => proj(b, week) - proj(a, week))[i], slot: out.slot! }))
-    .filter((s) => s.in)
-    .map((s) => ({ ...s, gain: proj(s.in, week) - proj(s.out, week) }))
+  const swaps = pairSwaps(benched, promoted, chosen, week)
   return { swaps, current, best }
+}
+
+/** Pair a benching with the player who takes that same slot. Never cross positions. */
+function pairSwaps(benched: Player[], promoted: Player[], chosen: Map<string, string>, week: number): Swap[] {
+  const used = new Set<string>()
+  const incoming = promoted.filter((p) => fitsSlot(p.pos, chosen.get(p.id) ?? ''))
+  const swaps: Swap[] = []
+  for (const out of [...benched].sort((a, b) => proj(a, week) - proj(b, week))) {
+    const slot = out.slot ?? ''
+    const pick = incoming
+      .filter((p) => !used.has(p.id) && chosen.get(p.id) === slot && fitsSlot(p.pos, slot))
+      .sort((a, b) => proj(b, week) - proj(a, week))[0]
+    if (!pick || proj(pick, week) <= proj(out, week)) continue
+    used.add(pick.id)
+    swaps.push({ out, in: pick, slot, gain: proj(pick, week) - proj(out, week) })
+  }
+  return swaps
 }
 
 export interface PlanItem {
