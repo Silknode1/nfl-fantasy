@@ -238,7 +238,37 @@ def test_separate_played_week_restores_the_pregame_projection_and_leaves_the_act
     assert player["proj"]["6"] == round(10.6 * 0.96, 2)
     assert player["projIf"]["6"] == 10.6
     assert player["actual"]["6"] == 22.0
+    assert player["proj"]["6"] != player["actual"]["6"]
+    # The vendor ESPN week stays 12. It is not replaced by the actual or by the restored blend.
+    assert player["espnWeek"] == 12.0
     assert player["proj"]["7"] == 10.8
+
+
+def test_espn_weekly_value_is_restored_when_the_blend_overwrote_it():
+    from fantasy.engine import separate_played_projections
+
+    # Anchor 11.2 is 0.6 * 12 + 0.4 * 10, so the vendor week is 12.
+    # The stored espnWeek was replaced by the app projection (10.2).
+    player = {
+        "id": "1", "name": "Runner", "pos": "RB", "nfl": "BUF", "teamId": 1,
+        "inj": "ACTIVE", "bye": 12, "gp": 4, "ppg": 10.0, "espnWeek": 10.2,
+        "rate": 10.0, "locked": False, "playP": 0.96, "sd": 4.0,
+        "rateParts": {"espn": 10.0, "season": 10.0, "trend": 1.0, "jev": 1.0, "week": 11.2, "k": 4.0},
+        "actual": {},
+        "proj": {"6": 10.18, "7": 10.8},
+        "projIf": {"6": 10.6, "7": 11.25},
+        "ros": 10.8, "playoffs": 0.0, "ourRank": 1,
+    }
+    data = {
+        "meta": {"week": 6, "regularWeeks": 14, "lastWeek": 17},
+        "defense": {"MIA": {"RB": 1.0}},
+        "nflOpp": {"BUF": {"6": "MIA", "7": "MIA"}},
+        "players": [player],
+    }
+    assert separate_played_projections(data) == 0
+    assert player["espnWeek"] == 12.0
+    assert player["proj"]["6"] == 10.18
+    assert player["actual"] == {}
 
 
 def test_separate_played_week_floors_a_negative_week_and_a_negative_spread():

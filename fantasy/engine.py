@@ -351,6 +351,8 @@ def build() -> dict:
             "locked": current in actual,  # this week's game already played
             "headshotAlt": (u or {}).get("headshot"),
         })
+        # The blend lives in proj. The vendor week stays on espnWeek, even if a later step wrote the blend over it.
+        restore_espn_week(players[-1], current)
 
     # Backup lift: when the team's top man at RB/WR is likely to miss, the next two score more.
     by_unit: dict = {}
@@ -504,12 +506,52 @@ def _rerank(players: list) -> None:
             p["ourRank"] = i + 1
 
 
+def _vendor_from_anchor(anchor: float, season_rate: float) -> float | None:
+    """ESPN's weekly number from the stored week prior.
+
+    The prior is 0.6 × the vendor week + 0.4 × the season rate when ESPN priced
+    the week. When the prior is just the season rate, the vendor week is not in it.
+    """
+    if abs(anchor - season_rate) < 0.02:
+        return None
+    vendor = (float(anchor) - 0.4 * float(season_rate)) / 0.6
+    if vendor <= 0.3:
+        return None
+    return round(vendor, 1)
+
+
+def restore_espn_week(player: dict, week: int) -> bool:
+    """Put the vendor ESPN week back when the blend was written into `espnWeek`.
+
+    The app projection stays in `proj`. The actual stays in `actual`. Neither
+    replaces the vendor number. A record whose `espnWeek` already matches the
+    vendor is left as it is.
+    """
+    parts = player.get("rateParts") or {}
+    anchor = parts.get("week")
+    season = parts.get("espn")
+    espn = player.get("espnWeek")
+    if anchor is None or season is None or espn is None:
+        return False
+    vendor = _vendor_from_anchor(float(anchor), float(season))
+    if vendor is None or abs(vendor - float(espn)) <= 0.15:
+        return False
+    proj = (player.get("proj") or {}).get(str(week))
+    looks_like_proj = proj is not None and abs(float(espn) - float(proj)) <= 0.15
+    looks_like_anchor = abs(float(espn) - float(anchor)) <= 0.15
+    if not (looks_like_proj or looks_like_anchor):
+        return False
+    player["espnWeek"] = vendor
+    return True
+
+
 def separate_played_projections(data: dict) -> int:
     """Put a copied actual back into the actual field's neighbor: proj becomes the pregame number.
 
     Old builds set proj and projIf to the actual once a stat line existed, and left playP empty.
-    That signature is restored. Weekly points are then floored at 0, and a negative spread at 0.
-    Returns how many current-week projections were restored.
+    That signature is restored. If the blend was written over the ESPN weekly number, that
+    vendor number is put back on `espnWeek`. Weekly points are then floored at 0, and a
+    negative spread at 0. Returns how many current-week projections were restored.
     """
     meta = data["meta"]
     week = int(meta["week"])
@@ -517,6 +559,8 @@ def separate_played_projections(data: dict) -> int:
     reg = int(meta["regularWeeks"])
     defense = data.get("defense") or {}
     nfl_opp = data.get("nflOpp") or {}
+    for p in data["players"]:
+        restore_espn_week(p, week)
     restored: set[str] = set()
     for p in data["players"]:
         if not p.get("locked") or p.get("playP") is not None:

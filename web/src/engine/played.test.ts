@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import type { FantasyData, Player, Pos } from '../types'
 import { weekRange } from '../components/RangeChart'
-import { separatePlayedProjections } from './played'
+import { separatePlayedProjections, weekChips } from './played'
 
 function player(over: Partial<Player> & { id: string; pos: Pos }): Player {
   return {
@@ -76,7 +76,28 @@ describe('played week stays separate from the projection', () => {
     expect(runner.proj['6']).toBeCloseTo(10.18, 2)
     expect(runner.projIf?.['6']).toBeCloseTo(10.6, 2)
     expect(runner.actual['6']).toBe(22)
+    expect(runner.proj['6']).not.toBe(runner.actual['6'])
+    expect(runner.espnWeek).toBe(12)
     expect(runner.proj['7']).toBe(10.8)
+  })
+
+  test('an ESPN week overwritten by the app blend is put back', () => {
+    const runner = player({
+      id: '3',
+      name: 'Runner',
+      pos: 'RB',
+      locked: false,
+      playP: 0.96,
+      espnWeek: 10.2,
+      actual: {},
+      proj: { '6': 10.18, '7': 10.8 },
+      projIf: { '6': 10.6, '7': 11.25 },
+    })
+    const d = data([runner])
+    separatePlayedProjections(d)
+    expect(runner.espnWeek).toBe(12)
+    expect(runner.proj['6']).toBe(10.18)
+    expect(runner.actual['6']).toBeUndefined()
   })
 
   test('a negative week and a negative spread are floored at 0', () => {
@@ -102,6 +123,37 @@ describe('played week stays separate from the projection', () => {
     expect(backup.proj['9']).toBe(0)
     expect(backup.sd).toBe(0)
     expect(backup.rate).toBe(-0.07)
+  })
+
+  test('roster chips keep the final, the app projection, and the ESPN projection apart', () => {
+    expect(weekChips({ proj: 15.7, espn: 16.8, scored: null, out: false, bye: false, state: 'pre' })).toEqual([
+      { label: 'Projected (this app)', value: 15.7 },
+      { label: 'ESPN projection', value: 16.8 },
+    ])
+    expect(weekChips({ proj: 15.7, espn: 16.8, scored: 21.9, out: false, bye: false, state: 'post' })).toEqual([
+      { label: 'Final', value: 21.9 },
+      { label: 'Projected (this app)', value: 15.7 },
+      { label: 'ESPN projection', value: 16.8 },
+    ])
+    expect(weekChips({ proj: 0, espn: 8.8, scored: null, out: true, bye: false, state: 'pre' })).toEqual([
+      { label: 'Out' },
+      { label: 'ESPN projection', value: 8.8 },
+    ])
+    expect(weekChips({ proj: 0, espn: null, scored: null, out: true, bye: false, state: 'pre' })).toEqual([
+      { label: 'Out' },
+    ])
+    expect(weekChips({ proj: null, espn: null, scored: null, out: false, bye: false, state: 'pre' })).toEqual([
+      { label: 'No week projection stored' },
+    ])
+    expect(weekChips({ proj: 14.1, espn: 16.8, scored: 0, out: false, bye: false, state: 'in' })).toEqual([
+      { label: 'So far', value: 0 },
+      { label: 'Projected (this app)', value: 14.1 },
+      { label: 'ESPN projection', value: 16.8 },
+    ])
+    expect(weekChips({ proj: 0, espn: 4, scored: null, out: false, bye: true, state: 'pre' })).toEqual([
+      { label: 'Bye' },
+      { label: 'ESPN projection', value: 4 },
+    ])
   })
 
   test('floor stays at or under the expected score', () => {

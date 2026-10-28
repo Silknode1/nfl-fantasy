@@ -104,12 +104,101 @@ export function finalScore(p: Player, week: number): number | null {
   return v == null ? null : v
 }
 
+export type WeekChip =
+  | { label: 'Final'; value: number }
+  | { label: 'Projected (this app)'; value: number }
+  | { label: 'ESPN projection'; value: number }
+  | { label: 'So far'; value: number }
+  | { label: 'Out' }
+  | { label: 'Bye' }
+  | { label: 'No week projection stored' }
+
+function espnChip(espn: number | null): WeekChip[] {
+  return espn == null ? [] : [{ label: 'ESPN projection', value: espn }]
+}
+
+function appChip(proj: number | null, hideZero: boolean): WeekChip[] {
+  if (proj == null) return []
+  if (hideZero && proj === 0) return []
+  return [{ label: 'Projected (this app)', value: proj }]
+}
+
+/**
+ * Final, this app's pregame projection, and the ESPN weekly number, as separate labels.
+ * A zero is omitted when the row already says Out or Bye.
+ */
+export function weekChips(row: {
+  proj: number | null
+  espn: number | null
+  scored: number | null
+  out: boolean
+  bye: boolean
+  state?: 'pre' | 'in' | 'post' | null
+}): WeekChip[] {
+  const state = row.state ?? null
+  const quiet = row.scored == null || row.scored === 0
+  if (state === 'post' && row.scored != null) {
+    return [{ label: 'Final', value: row.scored }, ...appChip(row.proj, false), ...espnChip(row.espn)]
+  }
+  if (row.bye && row.scored == null) {
+    return [{ label: 'Bye' }, ...espnChip(row.espn)]
+  }
+  if (row.out && (row.proj == null || row.proj === 0) && quiet) {
+    return [{ label: 'Out' }, ...espnChip(row.espn)]
+  }
+  if (state === 'in' && row.scored != null) {
+    return [{ label: 'So far', value: row.scored }, ...appChip(row.proj, false), ...espnChip(row.espn)]
+  }
+  if (row.proj == null) return [{ label: 'No week projection stored' }, ...espnChip(row.espn)]
+  return [...appChip(row.proj, false), ...espnChip(row.espn)]
+}
+
+/** Chips for one fantasy player. ESPN's number is the current week only. */
+export function rosterChips(p: Player, week: number, currentWeek: number): WeekChip[] {
+  const key = String(week)
+  const proj = Object.prototype.hasOwnProperty.call(p.proj, key) ? p.proj[key] : null
+  const scored = week === currentWeek ? finalScore(p, week) : null
+  const out = scored == null && (proj == null || proj === 0) && !!p.inj && p.inj !== 'ACTIVE'
+  const bye = scored == null && p.bye === week
+  return weekChips({
+    proj,
+    espn: week === currentWeek ? p.espnWeek : null,
+    scored,
+    out,
+    bye,
+    state: scored != null ? 'post' : 'pre',
+  })
+}
+
+function vendorFromAnchor(anchor: number, seasonRate: number): number | null {
+  if (Math.abs(anchor - seasonRate) < 0.02) return null
+  const vendor = (anchor - 0.4 * seasonRate) / 0.6
+  if (vendor <= 0.3) return null
+  return Math.round(vendor * 10) / 10
+}
+
+/** Put the vendor ESPN week back when the blend was written into `espnWeek`. */
+function restoreEspnWeek(p: Player, week: number): void {
+  const anchor = p.rateParts.week
+  const season = p.rateParts.espn
+  const espn = p.espnWeek
+  if (anchor == null || season == null || espn == null) return
+  const vendor = vendorFromAnchor(anchor, season)
+  if (vendor == null || Math.abs(vendor - espn) <= 0.15) return
+  const proj = p.proj[String(week)]
+  const looksLikeProj = proj != null && Math.abs(espn - proj) <= 0.15
+  const looksLikeAnchor = Math.abs(espn - anchor) <= 0.15
+  if (!looksLikeProj && !looksLikeAnchor) return
+  p.espnWeek = vendor
+}
+
 /** Restore pregame projections and floor weekly points at 0. Mutates the loaded file. */
 export function separatePlayedProjections(d: FantasyData): FantasyData {
   const week = d.meta.week
   const key = String(week)
   const reg = d.meta.regularWeeks
   const restored = new Set<string>()
+  for (const p of d.players) restoreEspnWeek(p, week)
   for (const p of d.players) {
     if (!copiedActual(p, key)) continue
     const next = pregame(p, week, d)
