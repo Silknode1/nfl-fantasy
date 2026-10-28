@@ -3,8 +3,8 @@ import { useFocus, type ShelfPin } from '../focus'
 import { ShelfClip } from './ClipStack'
 import { useEngineCtx } from '../dataContext'
 import { playoffSos, sosLabel } from '../engine/advice'
-import { finalScore } from '../engine/played'
-import { Avatar, InjuryTag, RankDelta, fmt, signed } from './bits'
+import { finalScore, rosterChips } from '../engine/played'
+import { Avatar, InjuryTag, RankDelta, fmt, signed, weekStatItems } from './bits'
 import { EmptyState, StatGroup } from './glass'
 import { PlayerLink, TeamLink } from './links'
 import { WeeklyChart } from './WeeklyChart'
@@ -31,6 +31,7 @@ function PlayerPin({ p }: { p: Player }) {
   const { unpin } = useFocus()
   const week = d.meta.week
   const scored = finalScore(p, week)
+  const chips = rosterChips(p, week, week)
   return (
     <section className="pin">
       <header className="pin-head">
@@ -47,9 +48,7 @@ function PlayerPin({ p }: { p: Player }) {
       <StatGroup
         label="Pinned snapshot"
         items={[
-          scored != null
-            ? { label: 'Final', value: fmt(scored), className: 'hero', title: `Projected ${fmt(p.proj[String(week)] ?? 0)} before the game` }
-            : { label: `Week ${week}`, value: fmt(p.proj[String(week)] ?? 0), className: 'hero', title: 'Projected this week' },
+          ...weekStatItems(chips),
           { label: 'fPPG', value: fmt(p.ppg) },
           { label: 'Trade', value: signed(tradeOf(p).surplus), tone: tradeOf(p).surplus > 0 ? 'up' : tradeOf(p).surplus < 0 ? 'down' : 'neutral' },
         ]}
@@ -57,9 +56,9 @@ function PlayerPin({ p }: { p: Player }) {
       <WeeklyChart p={p} />
       <dl className="facts">
         <dt>Scored</dt><dd>{fmt(p.ppg)} pts/g over {p.gp} games (fPPG); last 3 games {p.last3 != null ? fmt(p.last3) : '–'}</dd>
-        <dt>App projection</dt><dd>{fmt(p.proj[String(week)] ?? 0)} projected this week{scored != null ? ` (final ${fmt(scored)})` : ''}{p.playP != null && p.playP < 0.9 && p.playP > 0 ? ` (${Math.round(p.playP * 100)}% to play)` : ''}. {fmt(p.rate)} pts/g rest of season; {fmt(lab.v(p))} per week counting byes and injuries</dd>
+        <dt>Projected (this app)</dt><dd>{fmt(p.proj[String(week)] ?? 0)}{scored != null ? ` (Final ${fmt(scored)})` : ''}{p.playP != null && p.playP < 0.9 && p.playP > 0 ? ` (${Math.round(p.playP * 100)}% to play)` : ''}. {fmt(p.rate)} pts/g rest of season; {fmt(lab.v(p))} per week counting byes and injuries</dd>
         <dt>Trade value</dt><dd>{signed(tradeOf(p).surplus)} pts/wk above a replacement {p.pos} ({fmt(tradeOf(p).replacement)}). His own pace is {fmt(tradeOf(p).production)}.</dd>
-        <dt>ESPN</dt><dd>{p.espnWeek !== null ? `${fmt(p.espnWeek)} this week, ` : ''}{fmt(p.espnSeason, 0)} season projection</dd>
+        <dt>ESPN projection</dt><dd>{p.espnWeek !== null ? `${fmt(p.espnWeek)} this week, ` : ''}{fmt(p.espnSeason, 0)} season projection</dd>
         <dt>Usage</dt><dd>{usageLine(p)}</dd>
         <dt>Playoff draw</dt><dd>{sosLabel(playoffSos(d, p))} vs average defense, Weeks 15–17</dd>
         <dt>Interest</dt><dd>{p.own}% rostered on ESPN{p.adds ? `, ${p.adds.toLocaleString()} Sleeper adds in 24h` : ''}</dd>
@@ -127,8 +126,7 @@ export function StatRail() {
       <ol className="rail-list">
         {list.map((p, i) => {
           const tw = trendWord(p)
-          const scored = finalScore(p, week)
-          const wk = scored ?? p.proj[String(week)] ?? 0
+          const chips = rosterChips(p, week, week)
           return (
             <li
               key={p.id}
@@ -154,7 +152,9 @@ export function StatRail() {
                   <span><b>{fmt(p.ppg)}</b> pts/g</span>
                   <span><b>{fmt(lab.v(p))}</b> ROS/wk</span>
                   <span><b>{signed(tradeOf(p).surplus)}</b> trade</span>
-                  <span><b>{fmt(wk)}</b> {scored != null ? `final wk ${week}` : `wk ${week}`}</span>
+                  {chips.map((chip) => (
+                    <span key={chip.label}>{'value' in chip ? <><b>{fmt(chip.value)}</b> {chip.label}</> : chip.label}</span>
+                  ))}
                 </div>
                 <div className="rail-sub">
                   {usageLine(p)}

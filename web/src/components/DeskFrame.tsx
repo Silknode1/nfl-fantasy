@@ -155,7 +155,7 @@ export function DeskFrame({
   const roster: DeskPlayer[] = engine
     ? engine.d.players
       .filter((p) => p.teamId === myId && p.status === 'ONTEAM')
-      .map((p) => ({ id: p.id, name: p.name, nfl: p.nfl, teamId: p.teamId, proj: p.proj[week] ?? null }))
+      .map((p) => ({ id: p.id, name: p.name, nfl: p.nfl, teamId: p.teamId, proj: p.proj[week] ?? null, espn: p.espnWeek }))
     : []
   const view = searchView(board.games, query, selected?.id ?? null)
   const yours = (game: BoardGame) => playersInGame(game, roster, myId).length > 0
@@ -238,6 +238,7 @@ function shelfPlayers(game: BoardGame, roster: DeskPlayer[], myId: number, raw: 
     id: player.id,
     name: player.name,
     proj: player.proj,
+    espn: player.espn ?? null,
     scored: game.state === 'pre' ? null : box.find((row) => row.id === player.id)?.points ?? box.find((row) => row.name.toLowerCase() === player.name.toLowerCase())?.points ?? null,
   }))
 }

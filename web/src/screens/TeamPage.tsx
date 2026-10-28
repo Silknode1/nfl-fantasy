@@ -3,8 +3,8 @@ import { useOptionalEngine } from '../dataContext'
 import { fetchClub, fetchClubStats, fetchLastGame, fetchRoster } from '../espn/load'
 import { statLineEmpty, type ClubGame, type ClubProfile, type ClubStats, type RosterPlayer } from '../espn/parse'
 import type { Player } from '../types'
-import { finalScore } from '../engine/played'
-import { InjuryTag, fmt, signed } from '../components/bits'
+import { rosterChips } from '../engine/played'
+import { InjuryTag, signed, weekStatItems } from '../components/bits'
 import { EmptyState, GlassCard, Skeleton, StatGroup } from '../components/glass'
 import { TeamClipSearch } from '../components/ClipStack'
 import { BackButton, PlayerLink, TeamLink } from '../components/links'
@@ -46,10 +46,7 @@ function FantasySkill({ players }: { players: Player[] }) {
       {players.map((p) => {
         const tv = engine.tradeOf(p)
         const opp = engine.d.nflOpp[p.nfl]?.[week]
-        const scored = finalScore(p, engine.d.meta.week)
-        const weekPts = p.proj[week] ?? 0
-        const out = scored == null && weekPts === 0 && !!p.inj && p.inj !== 'ACTIVE'
-        const bye = scored == null && p.bye === engine.d.meta.week
+        const chips = rosterChips(p, engine.d.meta.week, engine.d.meta.week)
         return (
           <article key={p.id} className="skill-row lift">
             <div>
@@ -63,12 +60,7 @@ function FantasySkill({ players }: { players: Player[] }) {
             <StatGroup
               className="player-stats"
               items={[
-                {
-                  label: scored != null ? 'Final' : `Week ${engine.d.meta.week}`,
-                  value: bye ? 'Bye' : out ? 'Out' : fmt(scored ?? weekPts),
-                  className: 'hero',
-                  title: scored != null ? `Projected ${fmt(weekPts)} before the game` : out ? 'Not projected to play' : 'Projected this week',
-                },
+                ...weekStatItems(chips),
                 { label: 'Trade', value: signed(tv.surplus), tone: tv.surplus > 0 ? 'up' : tv.surplus < 0 ? 'down' : 'neutral' },
               ]}
             />
@@ -219,7 +211,7 @@ export function TeamPage({ abbr }: { abbr: string }) {
         <h2>Skill players</h2>
         {fantasySkill.length > 0 ? (
           <>
-            <p className="muted small">From the league file, ranked by rest-of-season points. Final is the score already in the file. Otherwise the week number is the projection, or Out when he is not projected to play. Trade is points per week above a replacement at the position.</p>
+            <p className="muted small">From the league file, ranked by rest-of-season points. Final is the score in the file. Projected (this app) is the pregame blend. ESPN projection is the vendor week. Out is a player with no projected points, and a zero stays off that row when Out is already shown. Trade is points per week above a replacement at the position.</p>
             <FantasySkill players={fantasySkill} />
           </>
         ) : (
