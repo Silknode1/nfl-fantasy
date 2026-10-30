@@ -16,7 +16,10 @@ export const Z_CEIL = 2.09
 export function weekRange(p: Player, week: number) {
   const e = p.proj[String(week)] ?? 0
   if (e <= 0) return null
-  return { floor: Math.max(0, e - Z_FLOOR * p.sd), exp: e, ceil: e + Z_CEIL * p.sd }
+  const sd = Math.max(0, p.sd)
+  const floor = Math.max(0, e - Z_FLOOR * sd)
+  const ceil = e + Z_CEIL * sd
+  return { floor, exp: e, ceil }
 }
 
 const GROUP = (p: Player) => (p.slot === 'IR' ? 'IR' : p.slot === 'BE' ? 'Bench' : 'Starters')
@@ -48,6 +51,7 @@ export function RangeChart({ roster, week, onPick }: { roster: Player[]; week: n
     if (groups.length && groups[groups.length - 1].name === g) groups[groups.length - 1].to = i
     else groups.push({ name: g, from: i, to: i })
   })
+  const finished = rows.some((x) => x.p.locked && x.p.actual[String(week)] != null)
   const h = hover !== null ? rows[hover] : null
   const short = (n: string) => (n.length > 16 ? n.split(' ').slice(-1)[0] : n)
   return (
@@ -78,7 +82,7 @@ export function RangeChart({ roster, week, onPick }: { roster: Player[]; week: n
                   <circle cx={cx(i)} cy={y(r.exp)} r={6.5} className="exp" />
                 </>
               ) : (
-                <text x={cx(i)} y={y(0) - 6} className="tick" textAnchor="middle">{p.bye === week ? 'bye' : 'out'}</text>
+                <text x={cx(i)} y={y(0) - 6} className="tick" textAnchor="middle">{p.bye === week ? 'bye' : p.inj && p.inj !== 'ACTIVE' ? 'out' : '0'}</text>
               )}
               <text transform={`translate(${cx(i) + 4},${H - pad.b + 12}) rotate(-50)`} className="name" textAnchor="end">{short(p.name)}</text>
             </g>
@@ -94,6 +98,7 @@ export function RangeChart({ roster, week, onPick }: { roster: Player[]; week: n
         ) : (
           <span className="legend">
             <i className="k-ceil" />Ceiling (90th pct) <i className="k-exp" />Expected <i className="k-floor" />Floor (10th pct)
+            {finished ? ' Pregame projection. The final score is a separate number.' : ''}
           </span>
         )}
       </figcaption>

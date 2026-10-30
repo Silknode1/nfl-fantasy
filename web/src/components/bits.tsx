@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Player } from '../types'
+import type { WeekChip } from '../engine/played'
+import type { StatItem } from './glass'
 import { useFocus } from '../focus'
 import { useData } from '../dataContext'
 
@@ -98,5 +100,39 @@ export function GradeMark({ grade, size = 'lg' }: { grade: string; size?: 'sm' |
 }
 
 export const fmt = (x: number, d = 1) => (Number.isFinite(x) ? x.toFixed(d) : '–')
+
+/** Stat tiles for Final, Projected (this app), and ESPN projection. */
+export function weekStatItems(chips: WeekChip[]): StatItem[] {
+  return chips.map((chip, i) => {
+    const hero = i === 0 ? 'hero' : undefined
+    if (chip.label === 'Out' || chip.label === 'Bye') {
+      return {
+        key: chip.label,
+        label: chip.label,
+        value: chip.label,
+        className: hero,
+        title: chip.label === 'Out' ? 'Not projected to play' : 'Bye week',
+      }
+    }
+    if (chip.label === 'No week projection stored') {
+      return { key: 'missing', label: 'Week', value: '—', className: hero, title: 'No week projection stored' }
+    }
+    const title = chip.label === 'Final'
+      ? 'Scored this week. The other numbers are pregame projections.'
+      : chip.label === 'So far'
+        ? 'Points so far. The other numbers are pregame projections.'
+        : chip.label === 'Projected (this app)'
+          ? 'Pregame projection from this app.'
+          : 'ESPN weekly projection.'
+    return {
+      key: chip.label,
+      label: chip.label,
+      value: fmt(chip.value),
+      className: ['wk', hero].filter(Boolean).join(' '),
+      tone: chip.label === 'Projected (this app)' ? 'accent' as const : undefined,
+      title,
+    }
+  })
+}
 export const signed = (x: number, d = 1) => (x >= 0 ? '+' : '') + x.toFixed(d)
 export const pct = (x: number, d = 0) => `${(x * 100).toFixed(d)}%`

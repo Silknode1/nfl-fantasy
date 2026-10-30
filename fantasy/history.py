@@ -91,13 +91,17 @@ def log_transactions(rows: list) -> int:
 
 
 def log_projections(data: dict) -> int:
-    """The app's live projection for the current week, one row per player per build."""
+    """The app's live projection for the current week, one row per player per build.
+
+    `proj` stays the pregame projection after the game is played, so a locked
+    player is logged too. His actual is not this column.
+    """
     wk = str(data["meta"]["week"])
     rows = [{"season": data["meta"]["season"], "week": int(wk), "espn_id": p["id"], "method": "app_live",
              "as_of": data["meta"]["generatedAt"], "name": p["name"], "pos": p["pos"], "nfl_team": p["nfl"],
              "fantasy_team_id": p["teamId"] or None, "app_proj": p["proj"].get(wk), "espn_week_proj": p.get("espnWeek"),
              "rate": p.get("rate"), "sd": p.get("sd"), "parts": p.get("rateParts")}
-            for p in data["players"] if not p.get("locked")]
+            for p in data["players"]]
     _post("player_week_projections", rows, "season,week,espn_id,method,as_of")
     return len(rows)
 
