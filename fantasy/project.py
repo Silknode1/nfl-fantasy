@@ -65,6 +65,10 @@ def schedule_projection(
 
     Returns proj (chance × points if he plays), proj_if, the rest-of-season active
     rate, and play_p for the current week (None when that game is already played).
+    An actual on a played week is not written into proj. The caller keeps the
+    actual on its own field. Weekly points are not below 0: the floor shown in
+    the app is not below 0, so the expected week cannot sit under that floor.
+    The rest-of-season rate is the blend and can be slightly negative.
     `last_week` is accepted so callers can pass the season bound; only `weeks` are projected.
     """
     del last_week  # the caller decides which weeks to send
@@ -76,26 +80,23 @@ def schedule_projection(
     play_p = None
     for w in weeks:
         wk = int(w["week"])
-        actual = w.get("actual")
-        if actual is not None:
-            proj[wk] = proj_if[wk] = round(float(actual), 2)
-            continue
+        is_current = wk == current
+        played = w.get("actual") is not None
         if w.get("bye") or not w.get("has_game"):
             proj[wk] = proj_if[wk] = 0.0
             continue
-        is_current = wk == current
         rate = this_week if is_current else ros
         # ESPN's weekly number already includes the opponent. Apply ours only when it does not.
         factor = defense_factor_clip(float(w.get("opp") or 1.0)) if not (is_current and espn_priced_week) else 1.0
         play = float(w.get("play") or 0.0)
         cond = float(w.get("if_plays") if w.get("if_plays") is not None else 1.0)
-        if_play = rate * factor * cond
+        if_play = max(0.0, rate * factor * cond)
         if play <= 0:
             proj[wk] = proj_if[wk] = 0.0
         else:
             proj[wk] = round(if_play * play, 2)
             proj_if[wk] = round(if_play, 2)
-        if is_current:
+        if is_current and not played:
             play_p = round(play, 2)
     return {
         "proj": proj,

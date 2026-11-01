@@ -64,6 +64,8 @@ export interface DeskPlayer {
   nfl: string
   teamId: number
   proj: number | null
+  /** ESPN's weekly projection for the current week. Null when the vendor did not send one. */
+  espn?: number | null
 }
 
 export interface ArticleFacts {

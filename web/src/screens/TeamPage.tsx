@@ -3,7 +3,8 @@ import { useOptionalEngine } from '../dataContext'
 import { fetchClub, fetchClubStats, fetchLastGame, fetchRoster } from '../espn/load'
 import { statLineEmpty, type ClubGame, type ClubProfile, type ClubStats, type RosterPlayer } from '../espn/parse'
 import type { Player } from '../types'
-import { InjuryTag, fmt, signed } from '../components/bits'
+import { rosterChips } from '../engine/played'
+import { InjuryTag, signed, weekStatItems } from '../components/bits'
 import { EmptyState, GlassCard, Skeleton, StatGroup } from '../components/glass'
 import { TeamClipSearch } from '../components/ClipStack'
 import { BackButton, PlayerLink, TeamLink } from '../components/links'
@@ -45,6 +46,7 @@ function FantasySkill({ players }: { players: Player[] }) {
       {players.map((p) => {
         const tv = engine.tradeOf(p)
         const opp = engine.d.nflOpp[p.nfl]?.[week]
+        const chips = rosterChips(p, engine.d.meta.week, engine.d.meta.week)
         return (
           <article key={p.id} className="skill-row lift">
             <div>
@@ -58,7 +60,7 @@ function FantasySkill({ players }: { players: Player[] }) {
             <StatGroup
               className="player-stats"
               items={[
-                { label: `Week ${engine.d.meta.week}`, value: fmt(p.proj[week] ?? 0), className: 'hero' },
+                ...weekStatItems(chips),
                 { label: 'Trade', value: signed(tv.surplus), tone: tv.surplus > 0 ? 'up' : tv.surplus < 0 ? 'down' : 'neutral' },
               ]}
             />
@@ -209,7 +211,7 @@ export function TeamPage({ abbr }: { abbr: string }) {
         <h2>Skill players</h2>
         {fantasySkill.length > 0 ? (
           <>
-            <p className="muted small">From the league file, ranked by rest-of-season points. The week number is this app's projection. Trade is points per week above a replacement at the position.</p>
+            <p className="muted small">From the league file, ranked by rest-of-season points. Final is the score in the file. Projected (this app) is the pregame blend. ESPN projection is the vendor week. Out is a player with no projected points, and a zero stays off that row when Out is already shown. Trade is points per week above a replacement at the position.</p>
             <FantasySkill players={fantasySkill} />
           </>
         ) : (

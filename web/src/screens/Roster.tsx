@@ -5,12 +5,13 @@ import { useFocus, useNumbered } from '../focus'
 import { RangeChart, weekRange } from '../components/RangeChart'
 import { PlayerProfile } from '../components/PlayerProfile'
 import { weekAdvice } from '../engine/advice'
+import { finalScore, rosterChips } from '../engine/played'
 import { breakingRosterNews } from '../espn/breaking'
 import { fetchNewsBundle } from '../espn/load'
 import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
 import { useDeskNews } from '../components/SubmitLink'
 import { sourceLabel, submittedBreaking } from '../news/submit'
-import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, hot, signed } from '../components/bits'
+import { Avatar, InjuryTag, PlayChance, RankDelta, fmt, hot, signed, weekStatItems } from '../components/bits'
 import { GlassCard, NewsCard, PlayerCard, StatGroup, SuccessMark } from '../components/glass'
 import { PlayerLink, TeamLink } from '../components/links'
 
@@ -40,9 +41,7 @@ function FloorSummary({ roster, week }: { roster: Player[]; week: number }) {
 function PlayerRow({ p, slot }: { p: Player; slot: string }) {
   const { d, lab, tradeOf } = useEngineCtx()
   const tv = tradeOf(p)
-  const wk = p.proj[String(d.meta.week)] ?? 0
-  const onBye = p.bye === d.meta.week
-  const out = !p.locked && wk === 0 && !!p.inj && p.inj !== 'ACTIVE'
+  const chips = rosterChips(p, d.meta.week, d.meta.week)
   const heat = hot(p)
   return (
     <PlayerCard>
@@ -62,7 +61,7 @@ function PlayerRow({ p, slot }: { p: Player; slot: string }) {
       <StatGroup
         className="player-stats"
         items={[
-          { key: 'wk', label: p.locked ? 'Final' : `Week ${d.meta.week}`, value: onBye ? 'Bye' : out ? 'Out' : fmt(wk), className: 'wk hero', title: p.locked ? 'Final for this week' : 'Projected this week' },
+          ...weekStatItems(chips),
           { key: 'fppg', label: 'fPPG', value: p.gp ? fmt(p.ppg) : '–', className: 'fppg', title: 'Fantasy points per game this season (half PPR)' },
           { key: 'l3', label: 'Last 3', value: p.last3 != null ? fmt(p.last3) : '–', className: 'l3', tone: heat === 'up' ? 'up' : heat === 'down' ? 'down' : 'neutral', title: 'Average of his last 3 games: how hot or cold he is' },
           { key: 'ros', label: 'ROS/wk', value: fmt(lab.v(p)), className: 'ros', title: 'Weighted points per week from next week on. Playoff weeks count 1.5×.' },
@@ -119,6 +118,7 @@ export function Roster() {
   const ir = mine.filter((p) => p.slot === 'IR')
   useNumbered([...starters, ...bench, ...ir])
   const wa = weekAdvice(mine, d.meta.week)
+  const anyFinal = starters.some((p) => finalScore(p, d.meta.week) != null)
   const r = ranks[me]
   const { setPinned } = useFocus()
   const [rangeTeam, setRangeTeam] = useState(me)
@@ -135,6 +135,7 @@ export function Roster() {
           <>
             <p>
               This week projects <b>{fmt(wa.current)}</b>. {wa.swaps.length === 1 ? 'One change' : 'A few changes'} gets you to <b>{fmt(wa.best)}</b>.
+              {anyFinal ? ' That total is the pregame projection. A final on a row below is what he scored.' : ''}
             </p>
             <ul className="swaps">
               {wa.swaps.map((s) => (
@@ -147,7 +148,7 @@ export function Roster() {
             </ul>
           </>
         ) : (
-          <SuccessMark major label={`This lineup is the one to roll with: ${fmt(wa.best)} projected points.`} />
+          <SuccessMark major label={`This lineup is the one to roll with: ${fmt(wa.best)} projected points.${anyFinal ? ' That total is the pregame projection. A final on a row below is what he scored.' : ''}`} />
         )}
       </GlassCard>
 
@@ -173,7 +174,7 @@ export function Roster() {
           <PlayerProfile p={profile} week={rangeWeek} onBack={() => setProfile(null)} />
         ) : (
           <>
-            <p className="muted small">Each player's projected half-PPR points: the dot is the expected score, the bar runs from a bad week (10th percentile) to a big week (90th percentile). Click a player to open his profile.</p>
+            <p className="muted small">Each player's projected half-PPR points: the dot is the expected score, the bar runs from a bad week (10th percentile) to a big week (90th percentile). A final score, when the game is over, stays in the Final column and is not this dot. Click a player to open his profile.</p>
             <FloorSummary roster={lab.rosters.get(rangeTeam) ?? []} week={rangeWeek} />
             <RangeChart roster={lab.rosters.get(rangeTeam) ?? []} week={rangeWeek} onPick={pick} />
           </>

@@ -4,6 +4,8 @@ import { fetchNewsBundle } from '../espn/load'
 import { dedupeNews, linkNewsToPlayers, newsFromPlayers, type NewsItem } from '../espn/parse'
 import type { BoardGame } from '../board/normalize'
 import { filterNews, newsTeams, pinGameId, readPinnedGames, unpinGameId, writePinnedGames } from '../board/shelf'
+import { weekChips } from '../engine/played'
+import { fmt } from './bits'
 import { mergeDeskNews, newsForGame } from '../news/submit'
 import { PlayerLink } from './links'
 import { useDeskNews } from './SubmitLink'
@@ -12,6 +14,7 @@ export interface ShelfPlayer {
   id: string
   name: string
   proj: number | null
+  espn: number | null
   scored: number | null
 }
 
@@ -110,18 +113,30 @@ export function GameShelf({
           {playersOpen && (
             players.length === 0 ? <p className="muted">Nobody from your roster is in this game.</p> : (
               <ul className="shelf-list">
-                {players.map((row) => (
+                {players.map((row) => {
+                  const fantasy = engine?.d.players.find((p) => p.id === row.id)
+                  const week = engine?.d.meta.week
+                  const chips = weekChips({
+                    proj: row.proj,
+                    espn: row.espn,
+                    scored: row.scored,
+                    out: Boolean(fantasy && fantasy.inj && fantasy.inj !== 'ACTIVE' && (row.proj == null || row.proj === 0)),
+                    bye: Boolean(fantasy && week != null && fantasy.bye === week),
+                    state: gameState,
+                  })
+                  return (
                   <li key={row.id}>
                     <PlayerLink id={row.id} name={row.name} />
-                    {gameState === 'post' && row.scored != null ? (
-                      <span className="shelf-points"><b>{row.scored}</b> final</span>
-                    ) : gameState === 'pre' || row.scored == null ? (
-                      <span className="shelf-points">{row.proj == null ? 'No week projection stored' : <><b>{row.proj}</b> projected</>}</span>
-                    ) : (
-                      <span className="shelf-points"><b>{row.scored}</b> so far{row.proj == null ? '' : <em> · projected {row.proj}</em>}</span>
-                    )}
+                    <span className="shelf-points">
+                      {chips.map((chip) => (
+                        chip.label === 'Out' || chip.label === 'Bye' || chip.label === 'No week projection stored'
+                          ? <span key={chip.label}>{chip.label}</span>
+                          : <span key={chip.label}><b>{fmt(chip.value)}</b> {chip.label}</span>
+                      ))}
+                    </span>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             )
           )}

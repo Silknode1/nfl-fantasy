@@ -52,7 +52,7 @@ export function Board({ focusId }: { focusId: string | null }) {
     const week = String(engine.d.meta.week)
     return engine.d.players
       .filter((p) => p.teamId === engine.d.meta.myTeamId && p.status === 'ONTEAM')
-      .map((p) => ({ id: p.id, name: p.name, nfl: p.nfl, teamId: p.teamId, proj: p.proj[week] ?? null }))
+      .map((p) => ({ id: p.id, name: p.name, nfl: p.nfl, teamId: p.teamId, proj: p.proj[week] ?? null, espn: p.espnWeek }))
   }, [engine])
 
   const counts = useMemo(() => (board ? rosterCounts(board.games, roster, engine?.d.meta.myTeamId ?? -1) : {}), [board, roster, engine])
