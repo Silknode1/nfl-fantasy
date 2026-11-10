@@ -141,7 +141,7 @@ export function Roster() {
               {wa.swaps.map((s) => (
                 <li key={s.out.id}>
                   <span className="swap-in">Start <PlayerLink id={s.in.id} name={s.in.name} /></span>
-                  <span className="muted">bench <PlayerLink id={s.out.id} name={s.out.name} /></span>
+                  <span className="muted">bench <PlayerLink id={s.out.id} name={s.out.name} /> ({s.out.pos}) from {s.slot}. {s.in.name} is a {s.in.pos}.</span>
                   <span className="gain">{signed(s.gain)} pts</span>
                 </li>
               ))}

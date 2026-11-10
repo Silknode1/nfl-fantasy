@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { Player, Pos } from '../types'
-import { fitsSlot, weekAdvice } from './advice'
+import { fitsSlot, swapLine, weekAdvice } from './advice'
 
 function player(partial: Partial<Player> & { id: string; name: string; pos: Pos; slot: string | null; weekPts: number }): Player {
   return {
@@ -61,6 +61,19 @@ describe('weekAdvice slot legality', () => {
     ])
     for (const swap of advice.swaps) expect(fitsSlot(swap.in.pos, swap.slot)).toBe(true)
     expect(advice.swaps.some((s) => s.in.pos === 'QB' && s.slot === 'TE')).toBe(false)
+  })
+
+  test('a flex swap names both positions', () => {
+    const line = swapLine({
+      out: player({ id: 'te', name: 'Tyler Warren', pos: 'TE', slot: 'FLEX', weekPts: 6.3 }),
+      in: player({ id: 'wr', name: 'Germie Bernard', pos: 'WR', slot: 'Bench', weekPts: 7.7 }),
+      slot: 'FLEX',
+      gain: 1.4,
+    }, 8)
+    expect(line).toContain('FLEX slot')
+    expect(line).toContain('Germie Bernard (WR)')
+    expect(line).toContain('Tyler Warren (TE)')
+    expect(line).toContain('Flex is open to RB, WR, and TE')
   })
 
   test('flex stays a skill position', () => {
