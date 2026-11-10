@@ -43,6 +43,14 @@ export function weekAdvice(roster: Player[], week: number): { swaps: Swap[]; cur
   return { swaps, current, best }
 }
 
+/** One sentence for a legal swap. Flex names both positions so a receiver for a tight end is not a mystery. */
+export function swapLine(swap: Swap, week: number): string {
+  const flex = swap.slot === 'FLEX' && swap.in.pos !== swap.out.pos
+    ? ` Flex is open to RB, WR, and TE, so a ${swap.in.pos} can replace a ${swap.out.pos}.`
+    : ''
+  return `${swap.slot} slot this week. ${swap.in.name} (${swap.in.pos}) projects ${proj(swap.in, week).toFixed(1)} vs ${swap.out.name} (${swap.out.pos}) at ${proj(swap.out, week).toFixed(1)}.${flex}`
+}
+
 /** Pair a benching with the player who takes that same slot. Never cross positions. */
 function pairSwaps(benched: Player[], promoted: Player[], chosen: Map<string, string>, week: number): Swap[] {
   const used = new Set<string>()
@@ -104,7 +112,7 @@ export function buildPlan(d: FantasyData, lab: TradeLab, ranks: Ranks, sim: SimR
   for (const s of wa.swaps) {
     short.push({
       title: `Start ${s.in.name} over ${s.out.name}`,
-      detail: `${s.slot} slot this week. ${s.in.name} projects ${proj(s.in, week).toFixed(1)} vs ${proj(s.out, week).toFixed(1)}.`,
+      detail: swapLine(s, week),
       stat: `+${s.gain.toFixed(1)} pts`,
       tone: 'act',
     })

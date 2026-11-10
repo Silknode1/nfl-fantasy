@@ -366,7 +366,7 @@ export function TeamClipSearch({ team }: { team: string }) {
   const [kickoffs, setKickoffs] = useState<string[]>([])
   useEffect(() => {
     let stop = false
-    fetchScoreboard()
+    fetchScoreboard(engine?.d.meta.week)
       .then(({ board }) => {
         if (stop) return
         setKickoffs(board.games.map((game) => game.kickoff))

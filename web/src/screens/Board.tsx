@@ -22,10 +22,11 @@ export function Board({ focusId }: { focusId: string | null }) {
   const [detail, setDetail] = useState<{ id: string; context: GameContext | null; raw: unknown } | null>(null)
   const [detailError, setDetailError] = useState(false)
 
+  const leagueWeek = engine?.d.meta.week
   useEffect(() => {
     let stop = false
     const pull = (first: boolean) => {
-      fetchScoreboard()
+      fetchScoreboard(leagueWeek)
         .then(({ board: next, source: src }) => {
           if (stop) return
           setBoard(next)
@@ -45,7 +46,7 @@ export function Board({ focusId }: { focusId: string | null }) {
       stop = true
       window.clearInterval(id)
     }
-  }, [])
+  }, [leagueWeek])
 
   const roster: DeskPlayer[] = useMemo(() => {
     if (!engine) return []

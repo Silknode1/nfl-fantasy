@@ -2,14 +2,28 @@ import { normalizeScoreboard, normalizeSummary, scoreboardBody, type Board, type
 
 const SCOREBOARD = '/espn/apis/site/v2/sports/football/nfl/scoreboard'
 
-export async function fetchScoreboard(): Promise<{ board: Board; source: 'live' | 'snapshot' }> {
+/** ESPN's default board stays on the week that just ended. Ask for the league week when we have one. */
+export function scoreboardPath(week?: number | null): string {
+  if (week == null || !Number.isFinite(week) || week <= 0) return SCOREBOARD
+  return `${SCOREBOARD}?seasontype=2&week=${Math.trunc(week)}`
+}
+
+async function readScoreboard(url: string): Promise<unknown> {
+  const res = await fetch(url, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`ESPN scoreboard ${res.status}`)
+  return res.json()
+}
+
+export async function fetchScoreboard(week?: number | null): Promise<{ board: Board; source: 'live' | 'snapshot' }> {
   const fetchedAt = new Date().toISOString()
   try {
-    const res = await fetch(SCOREBOARD, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`ESPN scoreboard ${res.status}`)
-    const raw: unknown = await res.json()
-    const { body } = scoreboardBody(raw)
-    if (!Array.isArray(body.events)) throw new Error('ESPN scoreboard had no games')
+    let raw = await readScoreboard(scoreboardPath(week))
+    let { body } = scoreboardBody(raw)
+    if (week != null && week > 0 && (!Array.isArray(body.events) || body.events.length === 0)) {
+      raw = await readScoreboard(SCOREBOARD)
+      body = scoreboardBody(raw).body
+    }
+    if (!Array.isArray(body.events) || body.events.length === 0) throw new Error('ESPN scoreboard had no games')
     return { board: normalizeScoreboard(raw, fetchedAt), source: 'live' }
   } catch (liveError) {
     const res = await fetch('data/scoreboard.json', { cache: 'no-store' })
